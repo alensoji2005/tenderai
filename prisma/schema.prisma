@@ -1,0 +1,81 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-py"
+  interface = "asyncio"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                      Int      @id @default(autoincrement())
+  company_name            String   @unique
+  iso_certified           Boolean  @default(false)
+  years_in_business       Int?
+  financial_strength_score Float?
+  past_win_rate           Float?
+  
+  bids                    Bid[]
+  created_at              DateTime @default(now())
+}
+
+model Tender {
+  tender_id          String    @id // e.g., "OM-2026-0458"
+  title              String
+  category           String?
+  subcategory        String?
+  publish_date       DateTime?
+  opening_date       DateTime?
+  closing_date       DateTime
+  estimated_value    Float?
+  currency           String    @default("OMR")
+  bid_fee            Float?
+  emd_amount         Float?
+  technical_specs    String?   @db.Text
+  status             String    @default("active") // active, closed, awarded, cancelled
+  winner_company     String?
+  l1_bid_price       Float?
+  award_date         DateTime?
+  num_bidders        Int?
+  
+  boq_items          BOQItem[]
+  bids               Bid[]
+  
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  @@index([closing_date])
+  @@index([status])
+  @@index([category])
+}
+
+model BOQItem {
+  id               Int     @id @default(autoincrement())
+  tender_id        String
+  item_number      Int?
+  item_description String
+  quantity         Float
+  unit             String?
+  unit_price       Float?
+  total_price      Float?
+
+  tender           Tender  @relation(fields: [tender_id], references: [tender_id], onDelete: Cascade)
+}
+
+model Bid {
+  id                   Int      @id @default(autoincrement())
+  tender_id            String
+  company_id           Int
+  bid_price            Float
+  price_margin_percent Float?
+  win_probability      Float?
+  won                  Boolean?
+  
+  tender               Tender   @relation(fields: [tender_id], references: [tender_id])
+  company              Company  @relation(fields: [company_id], references: [id])
+  
+  created_at           DateTime @default(now())
+}
