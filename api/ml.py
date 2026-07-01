@@ -19,6 +19,14 @@ except Exception as e:
     logger.warning(f"Failed to load ML model: {str(e)}. Ensure train_model.py has been run.")
     model = None
 
+COMPETITOR_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'ml', 'competitor_model.pkl')
+try:
+    competitor_model = joblib.load(COMPETITOR_MODEL_PATH)
+    logger.info(f"Successfully loaded competitor model from {COMPETITOR_MODEL_PATH}")
+except Exception as e:
+    logger.warning(f"Failed to load competitor model: {str(e)}")
+    competitor_model = None
+
 class BidPredictionRequest(BaseModel):
     tender_id: str
     company_id: int
@@ -34,6 +42,8 @@ class OptimalBidRequest(BaseModel):
     estimated_value: float
     duration_months: int = 12
     is_sme: bool = True
+    entity: str = "Ministry of Health"
+    category: str = "Construction"
 
 
 @router.post("/predict")
@@ -107,16 +117,28 @@ async def predict_optimal_amount(request: OptimalBidRequest):
         else:
             input_data = pd.DataFrame([{
                 'title': request.title,
-                'entity': 'Ministry of Health' # Use generic entity for open prediction
+                'entity': request.entity,
+                'category_grade': request.category
             }])
             target_margin = model.predict(input_data)[0]
+            
+        likely_competitors = []
+        if competitor_model is not None:
+            # Try entity first
+            comp_list = competitor_model.get('entities', {}).get(request.entity)
+            if not comp_list:
+                comp_list = competitor_model.get('categories', {}).get(request.category)
+            if not comp_list:
+                comp_list = competitor_model.get('global', [])
+            likely_competitors = comp_list[:3] # Return top 3
             
         predicted_winning_amount = request.estimated_value * target_margin
         confidence_score = 0.82 if model is not None else 0.50
         
         return {
             "predicted_winning_amount": predicted_winning_amount,
-            "confidence_score": confidence_score
+            "confidence_score": confidence_score,
+            "likely_competitors": likely_competitors
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

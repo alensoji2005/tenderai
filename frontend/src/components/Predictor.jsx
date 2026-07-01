@@ -5,7 +5,9 @@ export default function Predictor() {
   const [formData, setFormData] = useState({
     title: '',
     estimated_value: '',
-    duration_months: ''
+    duration_months: '',
+    entity: 'Ministry of Health',
+    category: 'Construction'
   });
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,9 @@ export default function Predictor() {
           title: formData.title,
           estimated_value: Number(formData.estimated_value) || 100000,
           duration_months: Number(formData.duration_months) || 12,
-          is_sme: true
+          is_sme: true,
+          entity: formData.entity,
+          category: formData.category
         })
       });
       const data = await res.json();
@@ -95,6 +99,31 @@ export default function Predictor() {
           </div>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div>
+            <label className="form-label">Entity Name</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="e.g. Ministry of Health"
+              value={formData.entity}
+              onChange={e => setFormData({...formData, entity: e.target.value})}
+              required
+            />
+          </div>
+          <div>
+            <label className="form-label">Category</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="e.g. Construction"
+              value={formData.category}
+              onChange={e => setFormData({...formData, category: e.target.value})}
+              required
+            />
+          </div>
+        </div>
+
         <button 
           type="submit" 
           className="btn-primary" 
@@ -139,6 +168,21 @@ export default function Predictor() {
             <AlertTriangle size={14} color="var(--status-warning)" />
             Confidence Score: <strong style={{ color: 'var(--brand-primary)' }}>{(prediction.confidence_score * 100).toFixed(1)}%</strong>
           </div>
+
+          {prediction.likely_competitors && prediction.likely_competitors.length > 0 && (
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(46, 160, 67, 0.2)' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                Likely Competitors
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {prediction.likely_competitors.map((comp, idx) => (
+                  <span key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', color: 'var(--text-primary)' }}>
+                    {comp}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       

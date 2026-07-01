@@ -7,10 +7,13 @@ from prisma import Prisma
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
 import logging
+import json
+from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -47,6 +50,7 @@ async def fetch_data():
         data.append({
             'title': t.tender_title,
             'entity': t.entity_name,
+            'category_grade': t.category_grade,
             'target_margin': target_margin
         })
         
@@ -66,7 +70,7 @@ def train_model():
     preprocessor = ColumnTransformer(
         transformers=[
             ('title_tfidf', TfidfVectorizer(max_features=500, stop_words='english'), 'title'),
-            # We can also add entity name if needed, but TF-IDF on title is strong enough
+            ('cat_entity', OneHotEncoder(handle_unknown='ignore'), ['entity', 'category_grade'])
         ]
     )
     
@@ -76,7 +80,7 @@ def train_model():
         ('regressor', RandomForestRegressor(n_estimators=100, random_state=42, max_depth=10))
     ])
     
-    X = df[['title', 'entity']]
+    X = df[['title', 'entity', 'category_grade']]
     y = df['target_margin']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -91,12 +95,50 @@ def train_model():
     logger.info(f"Mean Absolute Error (Margin): {mae:.4f}")
     logger.info(f"R2 Score: {r2:.4f}")
     
-    # Ensure ml directory exists
     os.makedirs('ml', exist_ok=True)
     
     model_path = os.path.join('ml', 'model.pkl')
     joblib.dump(pipeline, model_path)
     logger.info(f"Model saved to {model_path}")
 
+async def train_competitor_model_async():
+    db = Prisma()
+    await db.connect()
+    logger.info("Training Competitor Model...")
+    tenders = await db.awardedtender.find_many(include={'bids': True})
+    await db.disconnect()
+    
+    # Maps entity -> dict of {company: count}
+    entity_competitors = defaultdict(lambda: defaultdict(int))
+    category_competitors = defaultdict(lambda: defaultdict(int))
+    global_competitors = defaultdict(int)
+    
+    for t in tenders:
+        if not t.bids: continue
+        for b in t.bids:
+            c_name = b.company_name
+            entity_competitors[t.entity_name][c_name] += 1
+            category_competitors[t.category_grade][c_name] += 1
+            global_competitors[c_name] += 1
+            
+    # Extract top 10 for each
+    def get_top(counts_dict, n=10):
+        sorted_counts = sorted(counts_dict.items(), key=lambda x: x[1], reverse=True)
+        return [c[0] for c in sorted_counts[:n]]
+
+    competitor_model = {
+        'entities': {e: get_top(counts) for e, counts in entity_competitors.items()},
+        'categories': {c: get_top(counts) for c, counts in category_competitors.items()},
+        'global': get_top(global_competitors)
+    }
+    
+    comp_model_path = os.path.join('ml', 'competitor_model.pkl')
+    joblib.dump(competitor_model, comp_model_path)
+    logger.info(f"Competitor Model saved to {comp_model_path}")
+
+def train_competitor_model():
+    asyncio.run(train_competitor_model_async())
+
 if __name__ == '__main__':
     train_model()
+    train_competitor_model()

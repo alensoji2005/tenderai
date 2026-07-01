@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Predictor from '../components/Predictor';
 import { Database, TrendingUp, Users } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 export default function DashboardPage() {
   const [tenders, setTenders] = useState([]);
@@ -9,7 +9,9 @@ export default function DashboardPage() {
     total_tenders: 0,
     total_competitors: 0,
     avg_win_margin: 0,
-    chart_data: []
+    chart_data: [],
+    top_entities: [],
+    top_categories: []
   });
   const [loading, setLoading] = useState(true);
 
@@ -109,6 +111,42 @@ export default function DashboardPage() {
                 />
                 <Area type="monotone" dataKey="Tenders" stroke="var(--brand-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorTenders)" />
               </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Top Entities Chart */}
+        <div className="erp-card" style={{ gridColumn: 'span 6', padding: '24px' }}>
+          <div className="erp-card-header" style={{ marginBottom: '16px', borderBottom: 'none' }}>
+            Top Entities by Volume
+          </div>
+          <div style={{ width: '100%', height: '300px' }}>
+            <ResponsiveContainer>
+              <BarChart data={stats.top_entities} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} layout="vertical">
+                <XAxis type="number" stroke="#000" tick={{fontFamily: 'JetBrains Mono', fontSize: 12}} />
+                <YAxis dataKey="name" type="category" stroke="#000" tick={{fontFamily: 'JetBrains Mono', fontSize: 10}} width={150} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <Tooltip contentStyle={{ border: '2px solid #000', borderRadius: 0, fontFamily: 'JetBrains Mono' }} />
+                <Bar dataKey="count" fill="var(--brand-accent)" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Top Categories Chart */}
+        <div className="erp-card" style={{ gridColumn: 'span 6', padding: '24px' }}>
+          <div className="erp-card-header" style={{ marginBottom: '16px', borderBottom: 'none' }}>
+            Top Categories by Volume
+          </div>
+          <div style={{ width: '100%', height: '300px' }}>
+            <ResponsiveContainer>
+              <BarChart data={stats.top_categories} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} layout="vertical">
+                <XAxis type="number" stroke="#000" tick={{fontFamily: 'JetBrains Mono', fontSize: 12}} />
+                <YAxis dataKey="name" type="category" stroke="#000" tick={{fontFamily: 'JetBrains Mono', fontSize: 10}} width={150} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <Tooltip contentStyle={{ border: '2px solid #000', borderRadius: 0, fontFamily: 'JetBrains Mono' }} />
+                <Bar dataKey="count" fill="var(--brand-primary)" radius={[0, 4, 4, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

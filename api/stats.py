@@ -36,12 +36,41 @@ async def get_dashboard_stats(current_user = Depends(get_current_user)):
         # Sort chronologically for the chart
         chart_data = [{"name": row["month"], "Tenders": row["count"]} for row in volume_res]
         chart_data.reverse()
+        # Top 5 Entities by Volume
+        entity_query = """
+        SELECT 
+            entity_name as name,
+            COUNT(id)::int as count
+        FROM "AwardedTender"
+        WHERE entity_name IS NOT NULL
+        GROUP BY entity_name
+        ORDER BY count DESC
+        LIMIT 5
+        """
+        entity_res = await db.query_raw(entity_query)
+        top_entities = [{"name": row["name"], "count": row["count"]} for row in entity_res]
+        
+        # Top 5 Categories by Volume
+        category_query = """
+        SELECT 
+            category_grade as name,
+            COUNT(id)::int as count
+        FROM "AwardedTender"
+        WHERE category_grade IS NOT NULL
+        GROUP BY category_grade
+        ORDER BY count DESC
+        LIMIT 5
+        """
+        category_res = await db.query_raw(category_query)
+        top_categories = [{"name": row["name"], "count": row["count"]} for row in category_res]
         
         return {
             "total_tenders": total_tenders,
             "total_competitors": total_competitors,
-            "avg_win_margin": 14.2, # Hardcoded placeholder since we lack true estimated cost in scraper
-            "chart_data": chart_data
+            "avg_win_margin": 14.2, # Hardcoded placeholder
+            "chart_data": chart_data,
+            "top_entities": top_entities,
+            "top_categories": top_categories
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
