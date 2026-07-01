@@ -10,3 +10,4 @@ spacy
 reportlab
 pyjwt
 bcrypt
+python-multipart
