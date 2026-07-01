@@ -205,6 +205,16 @@ def run_scraper_job():
         loop.run_until_complete(save_tenders())
         loop.close()
         
+        # --- 4. Retrain ML Models ---
+        try:
+            logger.info("Retraining ML Models with newly scraped data...")
+            from ml.train_model import train_model, train_competitor_model
+            train_model()
+            train_competitor_model()
+            logger.info("ML Models retrained successfully.")
+        except Exception as e:
+            logger.error(f"Failed to retrain ML models: {str(e)}")
+            
     except Exception as e:
         logger.error(f"Error in scraper job: {str(e)}")
 
