@@ -11,10 +11,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     libnss3 \
-    libgconf-2-4 \
     libxss1 \
-    libappindicator1 \
-    libindicator7 \
     libasound2 \
     fonts-liberation \
     libgbm1 \
