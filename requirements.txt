@@ -11,3 +11,6 @@ reportlab
 pyjwt
 bcrypt
 python-multipart
+joblib
+pandas
+scikit-learn
