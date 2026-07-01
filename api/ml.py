@@ -29,6 +29,13 @@ class BidPredictionRequest(BaseModel):
     category: str = "Construction"
     title: str = "Maintenance Project"
 
+class OptimalBidRequest(BaseModel):
+    title: str
+    estimated_value: float
+    duration_months: int = 12
+    is_sme: bool = True
+
+
 @router.post("/predict")
 async def predict_win_probability(request: BidPredictionRequest):
     """
@@ -88,3 +95,28 @@ async def predict_win_probability(request: BidPredictionRequest):
 @router.post("/predict-heuristic")
 async def predict_heuristic(request: BidPredictionRequest):
     return await predict_win_probability(request)
+
+@router.post("/predict-optimal")
+async def predict_optimal_amount(request: OptimalBidRequest):
+    try:
+        if request.estimated_value <= 0:
+            raise ValueError("Estimated value must be greater than 0.")
+            
+        if model is None:
+            target_margin = 0.85
+        else:
+            input_data = pd.DataFrame([{
+                'title': request.title,
+                'entity': 'Ministry of Health' # Use generic entity for open prediction
+            }])
+            target_margin = model.predict(input_data)[0]
+            
+        predicted_winning_amount = request.estimated_value * target_margin
+        confidence_score = 0.82 if model is not None else 0.50
+        
+        return {
+            "predicted_winning_amount": predicted_winning_amount,
+            "confidence_score": confidence_score
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

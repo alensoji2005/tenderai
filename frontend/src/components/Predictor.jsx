@@ -16,7 +16,7 @@ export default function Predictor() {
     
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${apiUrl}/api/predict`, {
+      const res = await fetch(`${apiUrl}/api/ml/predict-optimal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -28,6 +28,10 @@ export default function Predictor() {
       });
       const data = await res.json();
       
+      if (!res.ok) {
+        throw new Error(data.detail || 'Prediction failed');
+      }
+      
       // Simulate network delay for effect
       setTimeout(() => {
         setPrediction(data);
@@ -35,6 +39,7 @@ export default function Predictor() {
       }, 600);
     } catch (err) {
       console.error(err);
+      alert(err.message || 'An error occurred during prediction.');
       setLoading(false);
     }
   };
