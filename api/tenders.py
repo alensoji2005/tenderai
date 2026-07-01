@@ -72,9 +72,11 @@ async def get_tenders(
                 value_filter["lte"] = max_value
             where_clause["estimated_value"] = value_filter
 
+        take_arg = limit if limit > 0 else None
+        
         tenders = await db.tender.find_many(
             where=where_clause,
-            take=limit,
+            take=take_arg,
             order={"closing_date": "desc"}
         )
         return {"count": len(tenders), "data": tenders}

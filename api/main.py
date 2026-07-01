@@ -55,15 +55,16 @@ async def health_check():
         "version": "1.0.0"
     }
 
-# api/main.py (Add to the bottom)
 from api.tenders import router as tenders_router
 from api.competitors import router as competitors_router
 from api.ml import router as ml_router
 from api.auth import router as auth_router
 from api.stats import router as stats_router
+from api.jobs_router import router as jobs_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
 app.include_router(tenders_router, prefix="/api/tenders", tags=["Tenders"])
 app.include_router(competitors_router, prefix="/api/competitors", tags=["Competitors"])
 app.include_router(ml_router, prefix="/api/ml", tags=["Intelligence"])
 app.include_router(stats_router, prefix="/api/stats", tags=["Stats"])
+app.include_router(jobs_router, prefix="/api/jobs", tags=["Jobs"])

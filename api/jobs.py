@@ -210,9 +210,9 @@ def run_scraper_job():
 
 def start_jobs():
     """Start the background scheduler."""
-    scheduler.add_job(run_scraper_job, 'cron', hour=0, minute=0, id='daily_scrape')
+    scheduler.add_job(run_scraper_job, 'cron', hour=2, minute=0, id='daily_scrape')
     scheduler.start()
-    logger.info("APScheduler started. Scraper will run automatically at midnight.")
+    logger.info("APScheduler started. Scraper will run automatically at 2:00 AM.")
 
 def stop_jobs():
     """Stop the background scheduler."""

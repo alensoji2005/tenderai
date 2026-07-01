@@ -59,7 +59,7 @@ export default function CompetitorProfilePage() {
     );
   }
 
-  const { stats, history, entity_distribution } = data;
+  const { stats, history, entity_distribution, frequently_beats = [] } = data;
   const winRate = stats.total_bids > 0 ? ((stats.tenders_won / stats.total_bids) * 100).toFixed(1) : 0;
 
   // Prepare data for the Bar Chart
@@ -95,28 +95,34 @@ export default function CompetitorProfilePage() {
       </div>
 
       <div className="erp-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card" style={{ gridColumn: 'span 3' }}>
+        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
           <div className="stat-label">Total Bids</div>
           <div className="stat-value">{stats.total_bids}</div>
         </div>
-        <div className="stat-card" style={{ gridColumn: 'span 3' }}>
+        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
           <div className="stat-label">Tenders Won</div>
           <div className="stat-value" style={{ color: 'var(--status-green)' }}>{stats.tenders_won}</div>
         </div>
-        <div className="stat-card" style={{ gridColumn: 'span 3' }}>
+        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
           <div className="stat-label">Win Rate</div>
           <div className="stat-value">{winRate}%</div>
         </div>
         <div className="stat-card" style={{ gridColumn: 'span 3' }}>
           <div className="stat-label">Total Won Amount</div>
-          <div className="stat-value" style={{ fontSize: '20px' }}>
+          <div className="stat-value" style={{ fontSize: '18px' }}>
             {stats.total_won_amount ? `OMR ${(stats.total_won_amount / 1000000).toFixed(2)}M` : 'OMR 0'}
+          </div>
+        </div>
+        <div className="stat-card" style={{ gridColumn: 'span 3' }}>
+          <div className="stat-label">Pricing Behavior</div>
+          <div className="stat-value" style={{ fontSize: '16px', color: 'var(--brand-accent)' }}>
+            {stats.pricing_behavior || 'Moderate'}
           </div>
         </div>
       </div>
 
       <div className="erp-grid" style={{ marginBottom: '24px' }}>
-        <div className="erp-card" style={{ gridColumn: 'span 8' }}>
+        <div className="erp-card" style={{ gridColumn: 'span 12' }}>
           <div className="erp-card-header">Bid Activity Trend (Wins vs Losses)</div>
           <div style={{ height: '300px', width: '100%' }}>
             {timeSeriesData.length > 0 ? (
@@ -138,8 +144,10 @@ export default function CompetitorProfilePage() {
             )}
           </div>
         </div>
+      </div>
 
-        <div className="erp-card" style={{ gridColumn: 'span 4' }}>
+      <div className="erp-grid" style={{ marginBottom: '24px' }}>
+        <div className="erp-card" style={{ gridColumn: 'span 6' }}>
           <div className="erp-card-header">Top Government Entities Targetted</div>
           <div style={{ height: '300px', width: '100%' }}>
             {entity_distribution.length > 0 ? (
@@ -165,6 +173,27 @@ export default function CompetitorProfilePage() {
             ) : (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                 No entity data
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="erp-card" style={{ gridColumn: 'span 6' }}>
+          <div className="erp-card-header">Frequently Beats</div>
+          <div style={{ height: '300px', width: '100%' }}>
+            {frequently_beats && frequently_beats.length > 0 ? (
+              <ResponsiveContainer>
+                <BarChart data={frequently_beats} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} layout="vertical">
+                  <XAxis type="number" stroke="#000" tick={{fontFamily: 'JetBrains Mono', fontSize: 12}} />
+                  <YAxis dataKey="name" type="category" stroke="#000" tick={{fontFamily: 'Outfit', fontSize: 11}} width={150} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                  <RechartsTooltip contentStyle={{ border: '2px solid #000', borderRadius: 0, fontFamily: 'JetBrains Mono' }} />
+                  <Bar dataKey="count" fill="var(--brand-accent)" radius={[0, 4, 4, 0]} name="Times Defeated" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                No head-to-head data
               </div>
             )}
           </div>

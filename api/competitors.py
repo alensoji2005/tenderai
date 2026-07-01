@@ -118,10 +118,42 @@ async def get_competitor_details(company_name: str, current_user = Depends(get_c
         """
         entity_distribution = await db.query_raw(entity_query, company_name)
         
+        # 4. Frequently Beats
+        beats_query = """
+        SELECT b2.company_name as name, COUNT(b2.id)::int as count
+        FROM "AwardedTenderBid" b1
+        JOIN "AwardedTenderBid" b2 ON b1.awarded_tender_no = b2.awarded_tender_no
+        WHERE b1.company_name = $1 AND b1.is_winner = true AND b2.company_name != $1
+        GROUP BY b2.company_name
+        ORDER BY count DESC
+        LIMIT 5
+        """
+        frequently_beats = await db.query_raw(beats_query, company_name)
+        
+        # 5. Pricing Behavior
+        market_query = """
+        SELECT AVG(total_quoted_value)::float as avg_market
+        FROM "AwardedTenderBid"
+        WHERE is_winner = true AND total_quoted_value > 0
+        """
+        market_res = await db.query_raw(market_query)
+        market_avg = market_res[0]['avg_market'] if market_res and market_res[0]['avg_market'] else 0
+        comp_avg = (stats['total_won_amount'] / stats['tenders_won']) if stats['tenders_won'] > 0 else 0
+        
+        pricing_behavior = "Moderate"
+        if comp_avg > 0 and market_avg > 0:
+            if comp_avg < market_avg * 0.5:
+                pricing_behavior = "Aggressive (Low Cost)"
+            elif comp_avg > market_avg * 1.5:
+                pricing_behavior = "Premium (High Value)"
+                
+        stats['pricing_behavior'] = pricing_behavior
+        
         return {
             "stats": stats,
             "history": history,
-            "entity_distribution": entity_distribution
+            "entity_distribution": entity_distribution,
+            "frequently_beats": frequently_beats
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
