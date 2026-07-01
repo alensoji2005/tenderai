@@ -1,0 +1,11 @@
+
+[27740:0701/231946.074:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[27740:0701/231946.076:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[27740:0701/231946.076:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[27740:0701/231946.076:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[27740:0701/231946.076:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[27740:0701/231946.076:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[27740:0701/231946.076:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[27740:0701/231946.077:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[27740:0701/231946.087:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[27740:0701/231947.187:WARNING:content\browser\btm\btm_database.cc:128] Failed to initialize the DIPS SQLite database.

@@ -1,0 +1,19 @@
+
+[26104:0701/231323.085:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[26104:0701/231323.087:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[26104:0701/231323.087:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[26104:0701/231323.087:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[26104:0701/231323.087:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[26104:0701/231323.087:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[26104:0701/231323.088:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[26104:0701/231323.088:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[26104:0701/231323.088:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[26104:0701/231325.305:WARNING:content\browser\btm\btm_database.cc:128] Failed to initialize the DIPS SQLite database.
+[26104:0701/231327.391:INFO:CONSOLE:2] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)

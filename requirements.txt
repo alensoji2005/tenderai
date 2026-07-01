@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+prisma
+undetected-chromedriver
+selenium
+requests
+beautifulsoup4
+pdfplumber
+spacy
+reportlab
+pyjwt
+bcrypt

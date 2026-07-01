@@ -1,0 +1,64 @@
+
+[13152:0701/231721.159:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[13152:0701/231721.161:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[13152:0701/231721.161:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[13152:0701/231721.161:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[13152:0701/231721.161:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[13152:0701/231721.161:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[13152:0701/231721.161:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: Access is denied. (0x5)
+[13152:0701/231721.162:ERROR:net\disk_cache\disk_cache.cc:284] Unable to create cache
+[13152:0701/231721.162:ERROR:gpu\ipc\host\gpu_disk_cache.cc:737] Gpu Cache Creation failed: -2
+[13152:0701/231723.617:WARNING:content\browser\btm\btm_database.cc:128] Failed to initialize the DIPS SQLite database.
+(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.
+[Renderer] App render state: [object Object] (line 71 in file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js)
+[13152:0701/231725.435:INFO:CONSOLE:71] "App render state: [object Object]", source: file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js (71)
+[Renderer] %cElectron Security Warning (Disabled webSecurity) font-weight: bold; This renderer process has "webSecurity" disabled. This
+  exposes users of this app to severe security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 in node:electron/js2c/sandbox_bundle)
+[13152:0701/231725.435:INFO:CONSOLE:2] "%cElectron Security Warning (Disabled webSecurity) font-weight: bold; This renderer process has "webSecurity" disabled. This
+  exposes users of this app to severe security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)
+[Renderer] %cElectron Security Warning (allowRunningInsecureContent) font-weight: bold; This renderer process has "allowRunningInsecureContent"
+  enabled. This exposes users of this app to severe security risks.
+
+  
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 in node:electron/js2c/sandbox_bundle)
+[13152:0701/231725.436:INFO:CONSOLE:2] "%cElectron Security Warning (allowRunningInsecureContent) font-weight: bold; This renderer process has "allowRunningInsecureContent"
+  enabled. This exposes users of this app to severe security risks.
+
+  
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)
+[Renderer] %cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 in node:electron/js2c/sandbox_bundle)
+[13152:0701/231725.436:INFO:CONSOLE:2] "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged.", source: node:electron/js2c/sandbox_bundle (2)
+[Renderer] App useEffect mounting (line 71 in file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js)
+[13152:0701/231725.437:INFO:CONSOLE:71] "App useEffect mounting", source: file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js (71)
+[Renderer] App render state: [object Object] (line 71 in file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js)
+[13152:0701/231727.146:INFO:CONSOLE:71] "App render state: [object Object]", source: file:///D:/projects/tenderai-oman/frontend/dist/assets/index-DPx1usWs.js (71)

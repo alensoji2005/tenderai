@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-py"
+  provider  = "prisma-client-py"
   interface = "asyncio"
 }
 
@@ -11,41 +11,49 @@ datasource db {
 }
 
 model Company {
-  id                      Int      @id @default(autoincrement())
-  company_name            String   @unique
-  iso_certified           Boolean  @default(false)
-  years_in_business       Int?
+  id                       Int     @id @default(autoincrement())
+  company_name             String  @unique
+  iso_certified            Boolean @default(false)
+  years_in_business        Int?
   financial_strength_score Float?
-  past_win_rate           Float?
-  
-  bids                    Bid[]
-  created_at              DateTime @default(now())
+  past_win_rate            Float?
+
+  bids       Bid[]
+  created_at DateTime @default(now())
 }
 
 model Tender {
-  tender_id          String    @id // e.g., "OM-2026-0458"
-  title              String
-  category           String?
-  subcategory        String?
-  publish_date       DateTime?
-  opening_date       DateTime?
-  closing_date       DateTime
-  estimated_value    Float?
-  currency           String    @default("OMR")
-  bid_fee            Float?
-  emd_amount         Float?
-  technical_specs    String?   @db.Text
-  status             String    @default("active") // active, closed, awarded, cancelled
-  winner_company     String?
-  l1_bid_price       Float?
-  award_date         DateTime?
-  num_bidders        Int?
-  
-  boq_items          BOQItem[]
-  bids               Bid[]
-  
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
+  tender_id       String    @id // e.g., "OM-2026-0458"
+  title           String
+  category        String?
+  subcategory     String?
+  publish_date    DateTime?
+  opening_date    DateTime?
+  closing_date    DateTime?
+  estimated_value Float?
+  currency        String    @default("OMR")
+  bid_fee         Float?
+  emd_amount      Float?
+  technical_specs String?   @db.Text
+  status          String    @default("active") // active, closed, awarded, cancelled
+  winner_company  String?
+  l1_bid_price    Float?
+  award_date      DateTime?
+  num_bidders     Int?
+
+  // New columns from scraping
+  entity          String?
+  grade           String?
+  tender_type     String?
+  vendor_type     String?
+  tender_fee_str  String?
+  tender_bond_str String?
+
+  boq_items BOQItem[]
+  bids      Bid[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([closing_date])
   @@index([status])
@@ -62,7 +70,7 @@ model BOQItem {
   unit_price       Float?
   total_price      Float?
 
-  tender           Tender  @relation(fields: [tender_id], references: [tender_id], onDelete: Cascade)
+  tender Tender @relation(fields: [tender_id], references: [tender_id], onDelete: Cascade)
 }
 
 model Bid {
@@ -73,9 +81,50 @@ model Bid {
   price_margin_percent Float?
   win_probability      Float?
   won                  Boolean?
-  
-  tender               Tender   @relation(fields: [tender_id], references: [tender_id])
-  company              Company  @relation(fields: [company_id], references: [id])
-  
-  created_at           DateTime @default(now())
+
+  tender  Tender  @relation(fields: [tender_id], references: [tender_id])
+  company Company @relation(fields: [company_id], references: [id])
+
+  created_at DateTime @default(now())
+}
+
+model AwardedTender {
+  id                      Int      @id @default(autoincrement()) // Maps to S.No.
+  tender_no               String   @unique // Maps to Tender No.
+  tender_title            String // Maps to Tender Title
+  entity_name             String // Maps to Entity Name
+  category_grade          String // Maps to Category [ Grade ]
+  tender_type_vendor_type String // Maps to Tender Type [Vendor Type]
+  awarded_date            DateTime // Maps to Awarded Date
+  winner_company_name     String? // From Tender Opening Report
+  winning_amount          Float? // From Tender Opening Report
+
+  bids AwardedTenderBid[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model AwardedTenderBid {
+  id                 Int    @id @default(autoincrement())
+  awarded_tender_no  String
+  company_name       String
+  offer_type         String?
+  total_quoted_value Float
+  status             String?
+  is_winner          Boolean @default(false)
+
+  awarded_tender AwardedTender @relation(fields: [awarded_tender_no], references: [tender_no], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  role       String   @default("employee")
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }

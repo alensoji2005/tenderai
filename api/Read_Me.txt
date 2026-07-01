@@ -15,3 +15,5 @@ cd D:\projects\tenderai-oman
 
 start your FastAPI server
 uvicorn api.main:app --reload
+
+no no no, there are over 30,000 records in the awarded section, idk why you keep insisting there is only about 4000. whats the glitch happenign that makes you think only 4000ish is present? see the screenshot, thats the end of the section where its clearly seen that the oldest record is number 30414 so why r we stopping at aroung page 90 (4400ish). see whats wrong and fix it, i need all 30000+ records added to my db

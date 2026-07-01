@@ -1,0 +1,1 @@
+let e=require("electron");e.contextBridge.exposeInMainWorld(`api`,{windowMin:()=>e.ipcRenderer.send(`window-min`),windowMax:()=>e.ipcRenderer.send(`window-max`),windowClose:()=>e.ipcRenderer.send(`window-close`)});
