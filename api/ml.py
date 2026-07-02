@@ -169,58 +169,35 @@ async def predict_price_to_win(request: P2WRequest):
         
         simulations = []
         
-        # We will simulate margins from 0% to 100% in 1% increments
-        margins = [1.0 + (i / 100.0) for i in range(101)]
+        # Simulate margins from 0.80 (20% loss) to 2.00 (100% profit) in 1% increments
+        margins = [(80 + i) / 100.0 for i in range(121)]
         
-        if bid_model is not None:
-            # Prepare data
-            # The model expects DataFrame with columns: ['title', 'entity', 'category_grade', 'company_name', 'quoted_value']
-            input_records = []
-            for m in margins:
-                input_records.append({
-                    'title': request.title,
-                    'entity': request.entity,
-                    'category_grade': request.category,
-                    'company_name': request.company_name,
-                    'quoted_value': request.base_cost * m
-                })
-            df_sim = pd.DataFrame(input_records)
-            
-            try:
-                # Find the index of the positive class (1 or True)
-                classes = bid_model.classes_
-                pos_idx = list(classes).index(1) if 1 in classes else (list(classes).index(True) if True in classes else 1)
-                probs = bid_model.predict_proba(df_sim)[:, pos_idx]
-            except Exception as e:
-                logger.error(f"Error predicting probabilities: {e}")
-                probs = [None] * len(margins)
+        # Use the Regressor model for a continuous, realistic curve
+        if model is not None:
+            target_m = model.predict(pd.DataFrame([{
+                'title': request.title,
+                'entity': request.entity,
+                'category_grade': request.category
+            }]))[0]
         else:
-            probs = [None] * len(margins)
+            target_m = 1.15
             
-        for i, margin in enumerate(margins):
+        for margin in margins:
             bid_price = request.base_cost * margin
             profit = bid_price - request.base_cost
             
-            if probs[i] is not None:
-                prob = probs[i]
+            diff = margin - target_m
+            
+            # Probability curve around the market average target margin
+            if diff <= 0:
+                # Bidding below market average -> higher probability
+                prob = 0.80 - (diff * 1.5)
             else:
-                # Heuristic fallback
-                if model is not None:
-                    target_m = model.predict(pd.DataFrame([{
-                        'title': request.title,
-                        'entity': request.entity,
-                        'category_grade': request.category
-                    }]))[0]
-                else:
-                    target_m = 1.15
-                    
-                diff = margin - target_m
-                if diff <= 0:
-                    prob = 0.80 - (diff * 1.0)
-                else:
-                    prob = 0.80 - (diff * 2.0)
-                prob = max(0.01, min(0.99, prob))
+                # Bidding above market average -> sharply lower probability
+                prob = 0.80 - (diff * 2.5)
                 
+            prob = max(0.01, min(0.99, prob))
+            
             simulations.append({
                 "margin": round(margin * 100 - 100, 1),
                 "bid_price": round(bid_price, 2),
@@ -240,7 +217,6 @@ async def predict_price_to_win(request: P2WRequest):
             best_match = sims_sorted_by_prob[0]
             
         # Aggressive: high risk (e.g., lower prob, but much higher profit)
-        # We can look for the option with highest profit that has at least 30% win prob
         agg_options = [s for s in simulations if s["win_probability"] >= 30.0]
         if agg_options:
             aggressive = max(agg_options, key=lambda x: x["profit"])
