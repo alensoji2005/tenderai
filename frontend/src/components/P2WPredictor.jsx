@@ -5,6 +5,7 @@ export default function P2WPredictor() {
   const [formData, setFormData] = useState({
     title: '',
     base_cost: '',
+    estimated_value: '',
     target_probability: 95,
     entity: 'Ministry of Health',
     category: 'Construction',
@@ -24,6 +25,7 @@ export default function P2WPredictor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           base_cost: Number(formData.base_cost) || 100000,
+          estimated_value: Number(formData.estimated_value) || 120000,
           target_probability: Number(formData.target_probability),
           title: formData.title,
           entity: formData.entity,
@@ -125,22 +127,35 @@ export default function P2WPredictor() {
             />
           </div>
           <div>
-            <label className="form-label" style={{ color: '#1e293b' }}>
-              Target Probability: <strong style={{ color: '#2563eb' }}>{formData.target_probability}%</strong>
-            </label>
+            <label className="form-label" style={{ color: '#1e293b' }}>Est. Official Value (OMR)</label>
             <input 
-              type="range" 
-              min="50" 
-              max="99" 
-              step="1"
-              style={{ width: '100%', marginTop: '8px' }}
-              value={formData.target_probability}
-              onChange={e => setFormData({...formData, target_probability: e.target.value})}
+              type="number" 
+              className="form-input" 
+              style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a' }}
+              placeholder="120000"
+              value={formData.estimated_value}
+              onChange={e => setFormData({...formData, estimated_value: e.target.value})}
+              required
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-              <span>50% (High Profit)</span>
-              <span>99% (Low Profit)</span>
-            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="form-label" style={{ color: '#1e293b' }}>
+            Target Probability: <strong style={{ color: '#2563eb' }}>{formData.target_probability}%</strong>
+          </label>
+          <input 
+            type="range" 
+            min="50" 
+            max="99" 
+            step="1"
+            style={{ width: '100%', marginTop: '8px' }}
+            value={formData.target_probability}
+            onChange={e => setFormData({...formData, target_probability: e.target.value})}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+            <span>50% (High Profit)</span>
+            <span>99% (Low Profit)</span>
           </div>
         </div>
 

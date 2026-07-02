@@ -55,6 +55,7 @@ class OptimalBidRequest(BaseModel):
 
 class P2WRequest(BaseModel):
     base_cost: float
+    estimated_value: float
     target_probability: float = 85.0
     title: str
     entity: str = "Ministry of Health"
@@ -180,20 +181,24 @@ async def predict_price_to_win(request: P2WRequest):
                 'category_grade': request.category
             }]))[0]
         else:
-            target_m = 1.15
+            target_m = 0.85
+            
+        predicted_winning_bid = request.estimated_value * target_m
             
         for margin in margins:
             bid_price = request.base_cost * margin
             profit = bid_price - request.base_cost
             
-            diff = margin - target_m
+            # Compare our bid price to the expected market winning bid
+            ratio = bid_price / predicted_winning_bid if predicted_winning_bid > 0 else 1.0
+            diff = ratio - 1.0
             
-            # Probability curve around the market average target margin
+            # Probability curve around the expected winning bid
             if diff <= 0:
-                # Bidding below market average -> higher probability
+                # Bidding below expected winning bid -> higher probability
                 prob = 0.80 - (diff * 1.5)
             else:
-                # Bidding above market average -> sharply lower probability
+                # Bidding above expected winning bid -> sharply lower probability
                 prob = 0.80 - (diff * 2.5)
                 
             prob = max(0.01, min(0.99, prob))
