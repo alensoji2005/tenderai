@@ -49,7 +49,7 @@ export default function Predictor() {
   };
 
   return (
-    <div className="erp-card" style={{ gridColumn: 'span 4' }}>
+    <div className="erp-card" style={{ gridColumn: 'span 6' }}>
       <div className="erp-card-header" style={{ marginBottom: '16px' }}>
         <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(88, 166, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand-primary)' }}>
           <Target size={18} />

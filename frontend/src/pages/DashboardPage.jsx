@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Predictor from '../components/Predictor';
+import P2WPredictor from '../components/P2WPredictor';
 import { Database, TrendingUp, Users } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
@@ -152,10 +153,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="erp-grid">
+      <div className="erp-grid" style={{ marginBottom: '24px' }}>
         <Predictor />
-        
-        <div className="erp-card" style={{ gridColumn: 'span 8', marginBottom: 0 }}>
+        <P2WPredictor />
+      </div>
+
+      <div className="erp-grid">
+        <div className="erp-card" style={{ gridColumn: 'span 12', marginBottom: 0 }}>
           <div className="erp-card-header">
             Recent Active Tenders
           </div>

@@ -10,6 +10,14 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+BID_MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'ml', 'bid_model.joblib')
+try:
+    bid_model = joblib.load(BID_MODEL_PATH)
+    logger.info(f"Successfully loaded bid classifier from {BID_MODEL_PATH}")
+except Exception as e:
+    logger.warning(f"Failed to load bid classifier: {str(e)}")
+    bid_model = None
+
 # Load the trained model on startup
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'ml', 'model.pkl')
 try:
@@ -44,6 +52,14 @@ class OptimalBidRequest(BaseModel):
     is_sme: bool = True
     entity: str = "Ministry of Health"
     category: str = "Construction"
+
+class P2WRequest(BaseModel):
+    base_cost: float
+    target_probability: float = 85.0
+    title: str
+    entity: str = "Ministry of Health"
+    category: str = "Construction"
+    company_name: str = "Oman Poles LLC"
 
 
 @router.post("/predict")
@@ -141,4 +157,105 @@ async def predict_optimal_amount(request: OptimalBidRequest):
             "likely_competitors": likely_competitors
         }
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/predict-p2w")
+async def predict_price_to_win(request: P2WRequest):
+    try:
+        if request.base_cost <= 0:
+            raise ValueError("Base cost must be greater than 0.")
+            
+        target_prob = request.target_probability / 100.0
+        
+        simulations = []
+        
+        # We will simulate margins from 0% to 100% in 1% increments
+        margins = [1.0 + (i / 100.0) for i in range(101)]
+        
+        if bid_model is not None:
+            # Prepare data
+            # The model expects DataFrame with columns: ['title', 'entity', 'category_grade', 'company_name', 'quoted_value']
+            input_records = []
+            for m in margins:
+                input_records.append({
+                    'title': request.title,
+                    'entity': request.entity,
+                    'category_grade': request.category,
+                    'company_name': request.company_name,
+                    'quoted_value': request.base_cost * m
+                })
+            df_sim = pd.DataFrame(input_records)
+            
+            try:
+                # Find the index of the positive class (1 or True)
+                classes = bid_model.classes_
+                pos_idx = list(classes).index(1) if 1 in classes else (list(classes).index(True) if True in classes else 1)
+                probs = bid_model.predict_proba(df_sim)[:, pos_idx]
+            except Exception as e:
+                logger.error(f"Error predicting probabilities: {e}")
+                probs = [None] * len(margins)
+        else:
+            probs = [None] * len(margins)
+            
+        for i, margin in enumerate(margins):
+            bid_price = request.base_cost * margin
+            profit = bid_price - request.base_cost
+            
+            if probs[i] is not None:
+                prob = probs[i]
+            else:
+                # Heuristic fallback
+                if model is not None:
+                    target_m = model.predict(pd.DataFrame([{
+                        'title': request.title,
+                        'entity': request.entity,
+                        'category_grade': request.category
+                    }]))[0]
+                else:
+                    target_m = 1.15
+                    
+                diff = margin - target_m
+                if diff <= 0:
+                    prob = 0.80 - (diff * 1.0)
+                else:
+                    prob = 0.80 - (diff * 2.0)
+                prob = max(0.01, min(0.99, prob))
+                
+            simulations.append({
+                "margin": round(margin * 100 - 100, 1),
+                "bid_price": round(bid_price, 2),
+                "profit": round(profit, 2),
+                "win_probability": round(prob * 100, 1)
+            })
+
+        # Sort simulations by probability descending
+        sims_sorted_by_prob = sorted(simulations, key=lambda x: x["win_probability"], reverse=True)
+        
+        # Best Match: highest profit among those with prob >= target_probability
+        valid_options = [s for s in simulations if s["win_probability"] >= request.target_probability]
+        if valid_options:
+            best_match = max(valid_options, key=lambda x: x["profit"])
+        else:
+            # If nothing hits the target, just give the one with the highest probability
+            best_match = sims_sorted_by_prob[0]
+            
+        # Aggressive: high risk (e.g., lower prob, but much higher profit)
+        # We can look for the option with highest profit that has at least 30% win prob
+        agg_options = [s for s in simulations if s["win_probability"] >= 30.0]
+        if agg_options:
+            aggressive = max(agg_options, key=lambda x: x["profit"])
+        else:
+            aggressive = sims_sorted_by_prob[0]
+            
+        # Conservative: lowest risk (highest win probability)
+        conservative = sims_sorted_by_prob[0]
+        
+        return {
+            "recommended": best_match,
+            "aggressive": aggressive,
+            "conservative": conservative,
+            "simulations": simulations
+        }
+    except Exception as e:
+        logger.error(f"Error in predict-p2w: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
