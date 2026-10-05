@@ -145,6 +145,8 @@ async def train_competitor_model_async():
 def train_competitor_model():
     asyncio.run(train_competitor_model_async())
 
+WIN_RATIO_BUCKETS = [(2, 2), (3, 4), (5, 7), (8, 11), (12, 10**6)]
+
 async def train_win_ratio_model_async():
     """Empirical distribution of (winning bid / median bid) per tender: the basis of P2W win probabilities."""
     db = Prisma()
@@ -152,7 +154,7 @@ async def train_win_ratio_model_async():
     tenders = await db.awardedtender.find_many(include={'bids': True})
     await db.disconnect()
 
-    ratios = []
+    ratios = []  # (bidder count, ratio)
     for t in tenders:
         values = [b.total_quoted_value for b in (t.bids or []) if b.total_quoted_value > 0]
         winners = [b.total_quoted_value for b in (t.bids or []) if b.is_winner and b.total_quoted_value > 0]
@@ -160,13 +162,19 @@ async def train_win_ratio_model_async():
             continue
         r = min(winners) / float(np.median(values))
         if 0.2 < r < 3:  # drop bad-data outliers
-            ratios.append(r)
+            ratios.append((len(values), r))
 
     if len(ratios) < 100:
         logger.error(f"Not enough tenders for the win-ratio model ({len(ratios)}).")
         return
     path = os.path.join(ML_DIR, 'win_ratios.pkl')
-    joblib.dump(np.sort(np.array(ratios)), path)
+    all_r = np.array([r for _, r in ratios])
+    buckets = []
+    for lo, hi in WIN_RATIO_BUCKETS:
+        sel = np.sort(np.array([r for n, r in ratios if lo <= n <= hi]))
+        if len(sel) >= 100:
+            buckets.append((lo, hi, sel))
+    joblib.dump({'all': np.sort(all_r), 'buckets': buckets}, path)
     logger.info(f"Win-ratio model saved to {path} ({len(ratios)} tenders)")
 
 def train_win_ratio_model():

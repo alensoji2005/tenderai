@@ -6,6 +6,7 @@ export default function P2WPredictor() {
     title: '',
     base_cost: '',
     estimated_value: '',
+    bidders: '',
     target_probability: 95,
     entity: 'Ministry of Health',
     category: 'Construction',
@@ -26,6 +27,7 @@ export default function P2WPredictor() {
         body: JSON.stringify({
           base_cost: Number(formData.base_cost) || 100000,
           estimated_value: Number(formData.estimated_value) || 120000,
+          bidders: formData.bidders ? Number(formData.bidders) : null,
           target_probability: Number(formData.target_probability),
           title: formData.title,
           entity: formData.entity,
@@ -127,7 +129,7 @@ export default function P2WPredictor() {
             />
           </div>
           <div>
-            <label className="form-label" style={{ color: '#1e293b' }}>Est. Official Value (OMR)</label>
+            <label className="form-label" style={{ color: '#1e293b' }}>Expected Typical Bid (OMR)</label>
             <input
               type="number"
               className="form-input"
@@ -138,6 +140,19 @@ export default function P2WPredictor() {
               required
             />
           </div>
+        </div>
+
+        <div>
+          <label className="form-label" style={{ color: '#1e293b' }}>Expected Bidders (optional)</label>
+          <input
+            type="number"
+            min="2"
+            className="form-input"
+            style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', color: '#0f172a' }}
+            placeholder="Unknown"
+            value={formData.bidders}
+            onChange={e => setFormData({...formData, bidders: e.target.value})}
+          />
         </div>
 
         <div>

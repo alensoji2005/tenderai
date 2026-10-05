@@ -81,6 +81,7 @@ class P2WRequest(BaseModel):
     entity: str = "Ministry of Health"
     category: str = "Construction"
     company_name: str = "Oman Poles LLC"
+    bidders: Optional[int] = None  # expected number of bidders; narrows the win-ratio distribution
 
 
 @router.post("/predict")
@@ -198,7 +199,15 @@ async def predict_price_to_win(request: P2WRequest):
         
         # Empirical winner/median-bid ratios from past awards. estimated_value is the expected
         # typical (median) bid; we win if we price below what the winner historically did.
-        ratios = _load('win_ratios.pkl')
+        model = _load('win_ratios.pkl')
+        ratios = None
+        if model is not None:
+            ratios = model['all']
+            if request.bidders:
+                for lo, hi, arr in model['buckets']:
+                    if lo <= request.bidders <= hi:
+                        ratios = arr
+                        break
         if ratios is None:
             raise ValueError("Win-ratio model not trained yet. Run a sync or ml/train_model.py.")
         if request.estimated_value <= 0:
