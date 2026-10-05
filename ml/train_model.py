@@ -19,6 +19,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 ML_DIR = os.path.dirname(os.path.abspath(__file__))
 
+try:
+    from ml.data_prep import clean_tenders
+except ImportError:  # run as a script from inside ml/
+    from data_prep import clean_tenders
+
 async def fetch_data():
     db = Prisma()
     await db.connect()
@@ -28,35 +33,18 @@ async def fetch_data():
     await db.disconnect()
     
     data = []
-    for t in tenders:
-        if not t.bids or len(t.bids) < 2:
-            continue
-            
-        # Get all valid bids
-        bid_values = [b.total_quoted_value for b in t.bids if b.total_quoted_value > 0]
-        if not bid_values:
-            continue
-            
-        mean_bid = np.mean(bid_values)
-        # Use the bid the portal flagged as winner; fall back to the lowest bid if none is flagged
-        winner_values = [b.total_quoted_value for b in t.bids if b.is_winner and b.total_quoted_value > 0]
-        winning_bid = np.min(winner_values) if winner_values else np.min(bid_values)
-        
-        # We calculate the margin as winning_bid / mean_bid
-        # e.g., if mean is 100k, and winning is 80k, margin is 0.8
-        target_margin = winning_bid / mean_bid
-        
-        # Only keep reasonable margins (exclude crazy outliers from bad data entry)
+    for r in clean_tenders(tenders):
+        # margin = winning_bid / mean_bid, e.g. mean 100k and winner 80k -> 0.8
+        target_margin = r['winning_bid'] / r['mean_bid']
         if target_margin < 0.2 or target_margin > 1.5:
             continue
-            
         data.append({
-            'title': t.tender_title,
-            'entity': t.entity_name,
-            'category_grade': t.category_grade,
+            'title': r['title'],
+            'entity': r['entity'],
+            'category_grade': r['category_grade'],
             'target_margin': target_margin
         })
-        
+
     df = pd.DataFrame(data)
     return df
 
@@ -155,14 +143,10 @@ async def train_win_ratio_model_async():
     await db.disconnect()
 
     ratios = []  # (bidder count, ratio)
-    for t in tenders:
-        values = [b.total_quoted_value for b in (t.bids or []) if b.total_quoted_value > 0]
-        winners = [b.total_quoted_value for b in (t.bids or []) if b.is_winner and b.total_quoted_value > 0]
-        if len(values) < 2 or not winners:
-            continue
-        r = min(winners) / float(np.median(values))
-        if 0.2 < r < 3:  # drop bad-data outliers
-            ratios.append((len(values), r))
+    for r in clean_tenders(tenders):
+        ratio = r['winning_bid'] / r['median_bid']
+        if 0.2 < ratio < 3:  # drop bad-data outliers
+            ratios.append((r['n_bidders'], ratio))
 
     if len(ratios) < 100:
         logger.error(f"Not enough tenders for the win-ratio model ({len(ratios)}).")
