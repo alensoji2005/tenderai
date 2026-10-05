@@ -17,6 +17,7 @@ from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
+ML_DIR = os.path.dirname(os.path.abspath(__file__))
 
 async def fetch_data():
     db = Prisma()
@@ -37,7 +38,9 @@ async def fetch_data():
             continue
             
         mean_bid = np.mean(bid_values)
-        winning_bid = np.min(bid_values) # The winner is usually the lowest valid bid
+        # Use the bid the portal flagged as winner; fall back to the lowest bid if none is flagged
+        winner_values = [b.total_quoted_value for b in t.bids if b.is_winner and b.total_quoted_value > 0]
+        winning_bid = np.min(winner_values) if winner_values else np.min(bid_values)
         
         # We calculate the margin as winning_bid / mean_bid
         # e.g., if mean is 100k, and winning is 80k, margin is 0.8
@@ -95,9 +98,12 @@ def train_model():
     logger.info(f"Mean Absolute Error (Margin): {mae:.4f}")
     logger.info(f"R2 Score: {r2:.4f}")
     
-    os.makedirs('ml', exist_ok=True)
+    os.makedirs(ML_DIR, exist_ok=True)
     
-    model_path = os.path.join('ml', 'model.pkl')
+    with open(os.path.join(ML_DIR, 'model_meta.json'), 'w') as f:
+        json.dump({'mae': float(mae), 'r2': float(r2), 'n_records': int(len(df))}, f)
+    
+    model_path = os.path.join(ML_DIR, 'model.pkl')
     joblib.dump(pipeline, model_path)
     logger.info(f"Model saved to {model_path}")
 
@@ -132,13 +138,41 @@ async def train_competitor_model_async():
         'global': get_top(global_competitors)
     }
     
-    comp_model_path = os.path.join('ml', 'competitor_model.pkl')
+    comp_model_path = os.path.join(ML_DIR, 'competitor_model.pkl')
     joblib.dump(competitor_model, comp_model_path)
     logger.info(f"Competitor Model saved to {comp_model_path}")
 
 def train_competitor_model():
     asyncio.run(train_competitor_model_async())
 
+async def train_win_ratio_model_async():
+    """Empirical distribution of (winning bid / median bid) per tender: the basis of P2W win probabilities."""
+    db = Prisma()
+    await db.connect()
+    tenders = await db.awardedtender.find_many(include={'bids': True})
+    await db.disconnect()
+
+    ratios = []
+    for t in tenders:
+        values = [b.total_quoted_value for b in (t.bids or []) if b.total_quoted_value > 0]
+        winners = [b.total_quoted_value for b in (t.bids or []) if b.is_winner and b.total_quoted_value > 0]
+        if len(values) < 2 or not winners:
+            continue
+        r = min(winners) / float(np.median(values))
+        if 0.2 < r < 3:  # drop bad-data outliers
+            ratios.append(r)
+
+    if len(ratios) < 100:
+        logger.error(f"Not enough tenders for the win-ratio model ({len(ratios)}).")
+        return
+    path = os.path.join(ML_DIR, 'win_ratios.pkl')
+    joblib.dump(np.sort(np.array(ratios)), path)
+    logger.info(f"Win-ratio model saved to {path} ({len(ratios)} tenders)")
+
+def train_win_ratio_model():
+    asyncio.run(train_win_ratio_model_async())
+
 if __name__ == '__main__':
     train_model()
     train_competitor_model()
+    train_win_ratio_model()

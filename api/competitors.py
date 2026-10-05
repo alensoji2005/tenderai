@@ -1,11 +1,13 @@
 # api/competitors.py
 from fastapi import APIRouter, HTTPException, Depends, Query
+import logging
 from api.main import db
 from api.auth import get_current_user
 from pydantic import BaseModel
 from typing import Optional
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/")
 async def get_competitors(
@@ -48,8 +50,11 @@ async def get_competitors(
             c['avg_winning_amount'] = c['avg_winning_amount'] if c['avg_winning_amount'] is not None else 0.0
             
         return {"count": len(competitors), "data": competitors}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("competitors query failed")
+        raise HTTPException(status_code=500, detail="Failed to load competitor data.")
 
 @router.get("/entities")
 async def get_entities(current_user = Depends(get_current_user)):
@@ -60,8 +65,11 @@ async def get_entities(current_user = Depends(get_current_user)):
         query = 'SELECT DISTINCT entity_name FROM "AwardedTender" ORDER BY entity_name'
         entities = await db.query_raw(query)
         return {"data": [e["entity_name"] for e in entities]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("competitors query failed")
+        raise HTTPException(status_code=500, detail="Failed to load competitor data.")
 
 @router.get("/{company_name}")
 async def get_competitor_details(company_name: str, current_user = Depends(get_current_user)):
@@ -97,7 +105,7 @@ async def get_competitor_details(company_name: str, current_user = Depends(get_c
         FROM "AwardedTenderBid" b
         JOIN "AwardedTender" t ON b.awarded_tender_no = t.tender_no
         WHERE b.company_name = $1
-        ORDER BY t.awarded_date DESC
+        ORDER BY t.awarded_date DESC NULLS LAST
         LIMIT 100
         """
         history = await db.query_raw(history_query, company_name)
@@ -155,5 +163,8 @@ async def get_competitor_details(company_name: str, current_user = Depends(get_c
             "entity_distribution": entity_distribution,
             "frequently_beats": frequently_beats
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("competitors query failed")
+        raise HTTPException(status_code=500, detail="Failed to load competitor data.")

@@ -4,6 +4,9 @@ from api.main import db
 from api.auth import get_current_user
 from typing import Optional, List
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,10 +21,9 @@ class TenderCreate(BaseModel):
     source: str = "public_scraper"
 
 @router.post("/bulk")
-async def bulk_insert_tenders(tenders: List[TenderCreate]):
+async def bulk_insert_tenders(tenders: List[TenderCreate], current_user = Depends(get_current_user)):
     """
     Ingest scraped tenders into the database.
-    Note: Can be protected by a different token in production if scraped by a script.
     """
     try:
         inserted = 0
@@ -40,8 +42,9 @@ async def bulk_insert_tenders(tenders: List[TenderCreate]):
             )
             inserted += 1
         return {"message": f"Successfully upserted {inserted} tenders."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("bulk upsert failed")
+        raise HTTPException(status_code=500, detail="Failed to save tenders.")
 
 @router.get("/")
 async def get_tenders(
@@ -57,11 +60,42 @@ async def get_tenders(
     Fetch a list of tenders from the database with robust filtering.
     """
     try:
+        take_arg = limit if limit > 0 else None
+
+        # Awarded (historical) tenders live in their own table, with their bids.
+        if status == "awarded":
+            where = {}
+            if category:
+                where["category_grade"] = {"contains": category, "mode": "insensitive"}
+            if title_search:
+                where["tender_title"] = {"contains": title_search, "mode": "insensitive"}
+            if min_value is not None or max_value is not None:
+                f = {}
+                if min_value is not None:
+                    f["gte"] = min_value
+                if max_value is not None:
+                    f["lte"] = max_value
+                where["winning_amount"] = f
+            rows = await db.awardedtender.find_many(
+                where=where, take=take_arg, order={"awarded_date": "desc"}, include={"bids": True}
+            )
+            data = [{
+                "tender_id": r.tender_no,
+                "title": r.tender_title,
+                "category": r.category_grade,
+                "entity": r.entity_name,
+                "status": "awarded",
+                "estimated_value": r.winning_amount,
+                "closing_date": r.awarded_date,
+                "bids": r.bids,
+            } for r in rows]
+            return {"count": len(data), "data": data}
+
         where_clause = {}
         if status:
             where_clause["status"] = status
         if category:
-            where_clause["category"] = category
+            where_clause["category"] = {"contains": category, "mode": "insensitive"}
         if title_search:
             where_clause["title"] = {"contains": title_search, "mode": "insensitive"}
         if min_value is not None or max_value is not None:
@@ -72,16 +106,15 @@ async def get_tenders(
                 value_filter["lte"] = max_value
             where_clause["estimated_value"] = value_filter
 
-        take_arg = limit if limit > 0 else None
-        
         tenders = await db.tender.find_many(
             where=where_clause,
             take=take_arg,
             order={"closing_date": "desc"}
         )
         return {"count": len(tenders), "data": tenders}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("get_tenders failed")
+        raise HTTPException(status_code=500, detail="Failed to load tenders.")
 
 @router.get("/{tender_id}")
 async def get_tender_details(tender_id: str, current_user = Depends(get_current_user)):
@@ -90,7 +123,7 @@ async def get_tender_details(tender_id: str, current_user = Depends(get_current_
     """
     tender = await db.tender.find_unique(
         where={"tender_id": tender_id},
-        include={"boq_items": True, "bids": True}
+        include={"boq_items": True}
     )
     
     if not tender:

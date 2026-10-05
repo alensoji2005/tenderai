@@ -2,7 +2,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prisma import Prisma
+from dotenv import load_dotenv
 import logging
+import os
+
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +23,9 @@ db = Prisma()
 # Configure CORS (Allows your future React frontend to talk to this API)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, we will restrict this to your domain
+    allow_origins=[o.strip() for o in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

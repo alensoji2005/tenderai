@@ -95,7 +95,7 @@ model AwardedTender {
   entity_name             String // Maps to Entity Name
   category_grade          String // Maps to Category [ Grade ]
   tender_type_vendor_type String // Maps to Tender Type [Vendor Type]
-  awarded_date            DateTime // Maps to Awarded Date
+  awarded_date            DateTime? // Maps to Awarded Date (null if portal date unparsable)
   winner_company_name     String? // From Tender Opening Report
   winning_amount          Float? // From Tender Opening Report
 

@@ -1,12 +1,16 @@
 # scraper/oman_tender_scraper.py
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import logging
 import os
 import requests
+import urllib.parse as urlparse
+from datetime import datetime
 
 # Configure logging to see what the bot is doing
 logging.basicConfig(
@@ -20,23 +24,26 @@ class OmanTenderScraper:
         self.username = username
         self.password = password
         self.base_url = "https://etendering.tenderboard.gov.om/product/publicDash"
-        
+
         logger.info("Initializing Undetected ChromeDriver...")
         options = uc.ChromeOptions()
         options.add_argument("--disable-popup-blocking")
-        # Keep headless disabled for now so we can visually watch the bot navigate
-        # options.add_argument('--headless') 
-        
-        self.driver = uc.Chrome(options=options, version_main=149)
+        # Set SCRAPER_HEADLESS=1 to hide the browser; CHROME_VERSION pins the driver major version
+        # (default: auto-detect the installed Chrome).
+        if os.getenv("SCRAPER_HEADLESS") == "1":
+            options.add_argument('--headless=new')
+        chrome_version = os.getenv("CHROME_VERSION")
+
+        self.driver = uc.Chrome(options=options, version_main=int(chrome_version) if chrome_version else None)
         self.wait = WebDriverWait(self.driver, 20) # 20-second timeout for slow portals
 
     def login(self):
         try:
             logger.info(f"Navigating to {self.base_url}...")
             self.driver.get(self.base_url)
-            
+
             logger.info("Waiting for login fields to appear...")
-            
+
             # Wait for username field using the ID we found
             username_field = self.wait.until(
                 EC.presence_of_element_located((By.ID, "txtUserId"))
@@ -56,11 +63,16 @@ class OmanTenderScraper:
             logger.info("Submitted login form. Waiting for dashboard...")
 
             # Wait for a specific element that only appears AFTER successful login to confirm
-            time.sleep(5) 
-            logger.info("Login sequence completed. Please verify the browser state.")
+            time.sleep(5)
+            if self.driver.find_elements(By.ID, "txtUserId"):
+                logger.error("Login form still present after submit - credentials rejected or portal blocked.")
+                return False
+            logger.info("Login sequence completed.")
+            return True
 
         except Exception as e:
             logger.error(f"Scraper encountered an error: {str(e)}")
+            return False
 
     def scrape_active_tenders(self, max_pages=10, on_page_scraped=None):
         """
@@ -71,28 +83,28 @@ class OmanTenderScraper:
         active_tenders = []
         logger.info("Starting active tenders scraping...")
         tenders = []
-        
+
         try:
             # Navigate to the actual in-process tenders view
             self.driver.get("https://etendering.tenderboard.gov.om/product/publicDash?viewFlag=InProcessTenders")
             time.sleep(10) # Wait for dynamic table to load
-            
+
             for page in range(max_pages):
                 # Find the main data table
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-                
+
                 target_table = None
                 for table in soup.find_all("table"):
                     headers = [th.text.strip().lower() for th in table.find_all("th")]
                     if len(headers) >= 8 and "display" in table.get("class", []):
                         target_table = table
                         break
-                        
+
                 if target_table:
                     rows = target_table.find_all("tr")
                     logger.info(f"Found table with {len(rows)} rows on page {page+1}.")
-                    
+
                     page_tenders = []
                     for row in rows[1:]: # Skip header
                         cols = row.find_all("td")
@@ -105,35 +117,35 @@ class OmanTenderScraper:
                             tender_fee_str = cols[6].text.strip()
                             tender_bond_str = cols[7].text.strip()
                             closing_date = cols[8].text.strip()
-                            
+
                             # Extract internal ID
                             tender_id = ""
+                            detail_url = None
                             view_btn = row.find('a', href=lambda href: href and 'tenderNo' in href)
                             if view_btn:
                                 href = view_btn['href']
-                                import urllib.parse as urlparse
+                                detail_url = urlparse.urljoin(self.driver.current_url, href)
                                 parsed = urlparse.urlparse(href)
                                 qs = urlparse.parse_qs(parsed.query)
                                 if 'tenderNo' in qs:
                                     tender_id = qs['tenderNo'][0]
-                                    
+
                             if not tender_id:
                                 tender_id = tender_no # Fallback
-                                
+
                             # Convert dates
-                            from datetime import datetime, timedelta
                             try:
                                 closing_date = datetime.strptime(closing_date, "%d/%m/%Y").isoformat() + "Z"
                             except ValueError:
-                                closing_date = (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
-                                
+                                closing_date = None  # unknown - never invent a deadline
+
                             opening_date = None
                             try:
                                 opening_date_str = cols[9].text.strip()
                                 opening_date = datetime.strptime(opening_date_str, "%d/%m/%Y").isoformat() + "Z"
                             except Exception:
-                                opening_date = datetime.utcnow().isoformat() + "Z"
-                                
+                                opening_date = None
+
                             if tender_no and title:
                                 page_tenders.append({
                                     "tender_id": tender_no,
@@ -144,17 +156,18 @@ class OmanTenderScraper:
                                     "tender_fee_str": tender_fee_str,
                                     "tender_bond_str": tender_bond_str,
                                     "closing_date": closing_date,
-                                    "opening_date": opening_date
+                                    "opening_date": opening_date,
+                                    "detail_url": detail_url
                                 })
                                 logger.info(f"Extracted real tender: {tender_no} - {title}")
-                    
+
                     active_tenders.extend(page_tenders)
                     if on_page_scraped:
                         try:
                             on_page_scraped(page_tenders)
                         except Exception as cb_e:
                             logger.error(f"Error in on_page_scraped callback: {str(cb_e)}")
-                            
+
                     # Handle pagination
                     next_btn = self.driver.find_elements(By.CSS_SELECTOR, "a.paginate_button.next")
                     if next_btn and "disabled" not in next_btn[0].get_attribute("class"):
@@ -168,10 +181,10 @@ class OmanTenderScraper:
                 else:
                     logger.warning("Could not find tender table in the DOM.")
                     break
-                    
+
         except Exception as e:
             logger.error(f"Error scraping active tenders: {str(e)}")
-            
+
         return active_tenders
 
     def scrape_awarded_tenders(self, max_pages=10, on_page_scraped=None, skip_tender_nos=None):
@@ -181,7 +194,7 @@ class OmanTenderScraper:
             logger.info("Navigating to public dashboard to initialize session...")
             self.driver.get("https://etendering.tenderboard.gov.om/product/publicDash")
             time.sleep(5)
-            
+
             # Ensure we are in English
             try:
                 logger.info("Switching language to English...")
@@ -203,7 +216,7 @@ class OmanTenderScraper:
             logger.info("Clicking on 'Completed Tenders' tab via javascript...")
             self.driver.execute_script("getCompletedTenders();")
             time.sleep(5)
-            
+
             # Wait for table to load
             logger.info("Waiting for table data to populate...")
             try:
@@ -211,21 +224,21 @@ class OmanTenderScraper:
                 self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
                 time.sleep(2) # Give it an extra moment to render
                 logger.info("Table data populated.")
-                
+
             except Exception as e:
                 logger.error("Timed out waiting for table data. Will try to parse whatever is there.")
-            
+
             # Check for security/session page
             if "You are unable to access the requested page" in self.driver.page_source:
                 logger.error("Security page detected. Session failed.")
                 return awarded_tenders
-            
+
             from bs4 import BeautifulSoup
-            
+
             page = 0
             while page < max_pages:
                 soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-                
+
                 target_table = None
                 for table in soup.find_all("table"):
                     if "display" in table.get("class", []):
@@ -238,43 +251,42 @@ class OmanTenderScraper:
                         if has_8_cols:
                             target_table = table
                             break
-                        
+
                 if target_table:
                     rows = target_table.find_all("tr", class_=lambda c: c and ("odd" in c or "even" in c))
                     logger.info(f"Found awarded table with {len(rows)} rows on page {page+1}.")
-                    
+
                     page_awarded = []
                     for row in rows:
                         cols = row.find_all("td")
                         if len(cols) >= 8:
-                            # S.No: cols[0], Tender No: cols[1], Title: cols[2], Entity: cols[3], 
+                            # S.No: cols[0], Tender No: cols[1], Title: cols[2], Entity: cols[3],
                             # Category: cols[4], Tender Type: cols[5], Awarded Date: cols[6], Action: cols[7]
-                            
+
                             tender_no_td = cols[1]
                             tender_no = tender_no_td.text.split()[0].strip() if tender_no_td.text else ""
-                            
+
                             # Often the span has the cleaner text
                             span = tender_no_td.find('span')
                             if span:
                                 tender_no = span.text.split()[0].strip()
-                                
+
                             title = cols[2].text.strip()
-                            
+
                             # Skip pagination rows or invalid rows
                             if not tender_no or tender_no in ['Page', '«Previous', '«First'] or 'Page' in title or 'Previous' in title:
                                 continue
-                            
+
                             if skip_tender_nos and tender_no in skip_tender_nos:
                                 logger.info(f"Skipping existing tender {tender_no}")
                                 continue
-                                
+
                             entity = cols[3].text.strip()
                             category_grade = cols[4].text.strip()
                             tender_type_vendor_type = cols[5].text.strip().replace('\n', '').replace('  ', '')
                             awarded_date_str = cols[6].text.strip()
-                            
+
                             # Parse dates
-                            from datetime import datetime
                             try:
                                 dt = datetime.strptime(awarded_date_str, "%d-%m-%Y %H:%M:%S")
                                 awarded_date = dt.isoformat() + "Z"
@@ -283,30 +295,32 @@ class OmanTenderScraper:
                                     dt = datetime.strptime(awarded_date_str, "%d-%m-%Y %H:%M")
                                     awarded_date = dt.isoformat() + "Z"
                                 except:
-                                    awarded_date = datetime.utcnow().isoformat() + "Z"
-                                    
+                                    awarded_date = None  # unparsable - store NULL rather than a fake date
+
                             winner_company_name = ""
                             winning_amount = 0.0
-                            
+
                             # Initialize bids to empty list for every tender
                             bids = []
-                            
+                            popup_ok = True  # False if the opening report could not be read
+
                             # Find action ID for popup
                             action_td = cols[7]
                             onclick_a = action_td.find('a', onclick=lambda x: x and 'showOpeningStatus_Report' in x)
                             if onclick_a:
                                 onclick_text = onclick_a['onclick']
                                 # showOpeningStatus_Report('87240','1') -> extract 87240
+                                popup_ok = False
                                 try:
                                     tender_internal_id = onclick_text.split("'")[1]
-                                    
+
                                     # Click popup
                                     logger.info(f"Opening popup for tender {tender_no} (ID: {tender_internal_id})")
                                     self.driver.execute_script(f"showOpeningStatus_Report('{tender_internal_id}', '1')")
-                                    
+
                                     # Save main window handle before click
                                     main_window = self.driver.current_window_handle
-                                    
+
                                     # Wait for new window to open or 5 seconds max
                                     opened_new_window = False
                                     try:
@@ -321,13 +335,13 @@ class OmanTenderScraper:
                                                 self.driver.switch_to.window(handle)
                                                 opened_new_window = True
                                                 break
-                                    
+
                                     # Wait for table to render in popup
                                     try:
                                         WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
                                     except Exception:
                                         pass
-                                        
+
                                     # Parse popup
                                     popup_soup = BeautifulSoup(self.driver.page_source, 'html.parser')
                                     # Find the table by locating the award.svg image first
@@ -341,27 +355,28 @@ class OmanTenderScraper:
                                             if len(table.find_all('tr')) > 1:
                                                 bids_table = table
                                                 break
-                                                
+
                                     if bids_table:
+                                        popup_ok = True
                                         rows_popup = bids_table.find_all('tr')
                                         for row_popup in rows_popup:
                                             cols_popup = row_popup.find_all('td')
                                             if len(cols_popup) >= 4:
                                                 # Check if this row is the winner (has the award.svg icon)
                                                 is_winner = bool(row_popup.find('img', src=lambda s: s and 'award.svg' in s))
-                                                
+
                                                 company_name = cols_popup[1].text.strip()
                                                 offer_type = cols_popup[2].text.strip() if len(cols_popup) > 2 else ""
-                                                
+
                                                 # Total Quoted Value is typically in index 3
                                                 amt_str = cols_popup[3].text.strip()
                                                 try:
                                                     quoted_value = float(amt_str.replace('OMR', '').replace(',', '').strip())
                                                 except ValueError:
                                                     quoted_value = 0.0
-                                                    
+
                                                 status = cols_popup[4].text.strip() if len(cols_popup) > 4 else ""
-                                                
+
                                                 bids.append({
                                                     "company_name": company_name,
                                                     "offer_type": offer_type,
@@ -369,12 +384,12 @@ class OmanTenderScraper:
                                                     "status": status,
                                                     "is_winner": is_winner
                                                 })
-                                                
+
                                                 if is_winner and not winner_company_name:
                                                     # Keep the top-level winner logic intact for backwards compatibility
                                                     winner_company_name = company_name
                                                     winning_amount = quoted_value
-                                    
+
                                     # Close popup and switch back
                                     if opened_new_window:
                                         self.driver.close()
@@ -385,14 +400,18 @@ class OmanTenderScraper:
                                             ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
                                         except:
                                             pass
-                                    
+
                                 except Exception as e:
                                     logger.error(f"Error extracting winner for {tender_no}: {str(e)}")
                                     # Make sure to switch back if failed
                                     if len(self.driver.window_handles) > 1:
                                         self.driver.close()
                                         self.driver.switch_to.window(self.driver.window_handles[0])
-                            
+
+                            if not popup_ok:
+                                # Don't persist a bid-less record: it would be skipped forever on later runs.
+                                logger.warning(f"Opening report unreadable for {tender_no}; will retry next run.")
+                                continue
                             if tender_no and title:
                                 page_awarded.append({
                                     "tender_no": tender_no,
@@ -406,17 +425,17 @@ class OmanTenderScraper:
                                     "submitted_bids": bids
                                 })
                                 logger.info(f"Extracted awarded tender: {tender_no} - Winner: {winner_company_name} ({winning_amount})")
-                                
+
                     # Add page tenders to overall list
                     awarded_tenders.extend(page_awarded)
-                    
+
                     # Call the callback if provided
                     if on_page_scraped:
                         try:
                             on_page_scraped(page_awarded)
                         except Exception as cb_e:
                             logger.error(f"Error in on_page_scraped callback: {str(cb_e)}")
-                                
+
                     # Robust custom pagination for Awarded Tenders
                     try:
                         hid_max_el = self.driver.find_elements(By.NAME, "hidMax")
@@ -425,17 +444,17 @@ class OmanTenderScraper:
                             if page + 1 >= total_pages:
                                 logger.info(f"Reached the last page ({total_pages}).")
                                 break
-                            
+
                             logger.info(f"Navigating to page {page + 2} of {total_pages}...")
                             self.driver.execute_script(f"ShowPage({page + 2});")
-                            
+
                             # Wait for the new page table to load
                             try:
                                 self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
                                 time.sleep(3) # Extra buffer for rendering
                             except:
                                 logger.warning("Timeout waiting for next page table.")
-                                
+
                         else:
                             # Fallback just in case it uses DataTables sometimes
                             next_btn = self.driver.find_elements(By.CSS_SELECTOR, "a.paginate_button.next")
@@ -464,71 +483,75 @@ class OmanTenderScraper:
                                 time.sleep(5)
                             except:
                                 pass
-                                
+
                             self.driver.execute_script("document.getElementById('CTRL_STRDIRECTION').value = 'LTR';")
                             self.driver.execute_script("getCompletedTenders();")
                             time.sleep(5)
-                            
+
                             logger.info(f"Jumping back to page {page + 1}...")
                             self.driver.execute_script(f"ShowPage({page + 1});")
-                            
+
                             try:
                                 self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
                                 time.sleep(3)
                             except:
                                 pass
-                                
+
                             continue  # Retry parsing this page
                         except Exception as retry_e:
                             logger.error(f"Failed to recover session: {retry_e}")
                             break
                     else:
                         break
-                
+
                 page += 1
-                    
+
         except Exception as e:
             logger.error(f"Error scraping awarded tenders: {str(e)}")
-            
+
         return awarded_tenders
 
-    def download_documents(self, tender_id):
+    def download_documents(self, tender_id, detail_url=None):
         """
-        Scaffolding: Download PDF documents for a specific tender to local storage.
+        Download PDF documents for a tender to local storage.
+        detail_url is the tender's View link captured by scrape_active_tenders.
         """
+        if not detail_url:
+            logger.info(f"No detail URL for tender {tender_id}; skipping document download.")
+            return []
         storage_dir = os.path.join(".", "documents", "raw_pdfs")
         os.makedirs(storage_dir, exist_ok=True)
         downloaded_files = []
-        
+
         logger.info(f"Fetching documents for tender {tender_id}...")
         try:
             # Navigate to tender detail page
-            self.driver.get(f"{self.base_url}/tender/detail/{tender_id}")
+            self.driver.get(detail_url)
             time.sleep(2)
-            
+
             # Find download links (adjust selector later)
             pdf_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href$='.pdf']")
-            
+
             for link in pdf_links:
-                url = link.get_attribute("href")
-                filename = url.split("/")[-1]
+                url = urlparse.urljoin(self.driver.current_url, link.get_attribute("href"))
+                filename = os.path.basename(urlparse.urlparse(url).path)
                 filepath = os.path.join(storage_dir, filename)
-                
+
                 logger.info(f"Downloading {filename}...")
-                # Note: For actual downloading in Selenium, we might need to click the link 
+                # Note: For actual downloading in Selenium, we might need to click the link
                 # and rely on Chrome's default download directory, OR use requests with cookies.
                 # This is scaffolding for the requests approach.
                 cookies = {c['name']: c['value'] for c in self.driver.get_cookies()}
                 response = requests.get(url, cookies=cookies)
-                
+
                 with open(filepath, "wb") as f:
                     f.write(response.content)
                 logger.info(f"Saved to {filepath}")
                 downloaded_files.append(filepath)
-                
+
         except Exception as e:
             logger.error(f"Error downloading documents for {tender_id}: {str(e)}")
-            
+
         return downloaded_files
 
     def close(self):
@@ -539,10 +562,10 @@ if __name__ == "__main__":
     # Replace these with your actual test credentials for the portal
     TEST_USER = "your_actual_username"
     TEST_PASS = "your_actual_password"
-    
+
     scraper = OmanTenderScraper(TEST_USER, TEST_PASS)
     scraper.login()
-    
+
     # Keeping it open for 15 seconds so you can see if the login worked
-    time.sleep(15) 
+    time.sleep(15)
     scraper.close()

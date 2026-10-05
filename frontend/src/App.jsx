@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, Settings, Database, Search, Bell, X, Minus, Square } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, Settings, Database } from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
 import CompetitorProfilePage from './pages/CompetitorProfilePage';
@@ -9,13 +9,32 @@ import { useEffect, useState } from 'react';
 
 
 
+function BackendStatus() {
+  const [ok, setOk] = useState(null);
+  useEffect(() => {
+    const apiUrl = localStorage.getItem('api_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const ping = () => fetch(`${apiUrl}/health`).then(r => setOk(r.ok)).catch(() => setOk(false));
+    ping();
+    const id = setInterval(ping, 15000);
+    return () => clearInterval(id);
+  }, []);
+  const color = ok === null ? '#888' : ok ? 'var(--status-green)' : 'var(--status-red)';
+  const label = ok === null ? 'Checking' : ok ? 'Connected' : 'Offline';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color, textTransform: 'uppercase' }}>
+      <div style={{ width: '10px', height: '10px', background: color, border: '1px solid #000' }} />
+      {label}
+    </div>
+  );
+}
+
 function Sidebar() {
   return (
     <nav className="app-sidebar">
       <div style={{ padding: '0 16px', marginBottom: '24px', marginTop: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#000' }}>
-          <div style={{ 
-            width: '40px', height: '40px', 
+          <div style={{
+            width: '40px', height: '40px',
             background: 'var(--brand-primary)',
             border: '2px solid #000',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -31,7 +50,7 @@ function Sidebar() {
       </div>
 
       <div className="nav-label">Main Menu</div>
-      
+
       <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
         <LayoutDashboard size={18} />
         Dashboard
@@ -44,16 +63,13 @@ function Sidebar() {
         <BarChart3 size={18} />
         Competitors
       </NavLink>
-      
+
       <div style={{ marginTop: 'auto' }}>
         <div style={{ padding: '16px', background: '#FFF', border: '2px solid #000', marginBottom: '16px', boxShadow: '4px 4px 0px #000' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, fontFamily: '"JetBrains Mono", monospace', color: '#000', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Backend Status</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--status-green)', textTransform: 'uppercase' }}>
-            <div style={{ width: '10px', height: '10px', background: 'var(--status-green)', border: '1px solid #000' }} />
-            Connected
-          </div>
+          <BackendStatus />
         </div>
-        
+
         <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           <Settings size={18} />
           Settings
@@ -76,34 +92,24 @@ function TopHeader() {
   };
 
   return (
-    <header style={{ 
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-      marginBottom: '48px', paddingBottom: '24px', borderBottom: '2px solid #000' 
+    <header style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      marginBottom: '48px', paddingBottom: '24px', borderBottom: '2px solid #000'
     }}>
       <h1 className="page-title" style={{ margin: 0 }}>{getPageTitle()}</h1>
-      
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#000' }} />
-          <input type="text" placeholder="Search data..." className="form-input" style={{ width: '300px', paddingLeft: '48px' }} />
-        </div>
-        
-        <button style={{ background: '#FFF', border: '2px solid #000', color: '#000', cursor: 'pointer', position: 'relative', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '4px 4px 0px #000' }}>
-          <Bell size={20} />
-          <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '12px', height: '12px', background: 'var(--brand-primary)', border: '2px solid #000' }} />
-        </button>
-        
-        <div style={{ 
-          display: 'flex', alignItems: 'center', gap: '12px', 
-          padding: '4px 16px 4px 4px', background: '#FFF', 
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '4px 16px 4px 4px', background: '#FFF',
           border: '2px solid #000', cursor: 'pointer',
           boxShadow: '4px 4px 0px #000'
         }}>
-          <div style={{ 
-            width: '36px', height: '36px', 
-            background: 'var(--brand-primary)', color: 'white', 
+          <div style={{
+            width: '36px', height: '36px',
+            background: 'var(--brand-primary)', color: 'white',
             border: '2px solid #000',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '12px', fontWeight: 700, fontFamily: '"JetBrains Mono", monospace'
           }}>
             AD
@@ -134,17 +140,17 @@ function LoginScreen({ onLogin }) {
       const formData = new URLSearchParams();
       formData.append('username', username);
       formData.append('password', password);
-      
+
       const res = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData
       });
-      
+
       if (!res.ok) {
         throw new Error('Invalid email or password');
       }
-      
+
       const data = await res.json();
       localStorage.setItem('token', data.access_token);
       onLogin(data.access_token);
@@ -158,18 +164,18 @@ function LoginScreen({ onLogin }) {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
         {/* Brutalist Background Pattern */}
         <div style={{ position: 'absolute', top: '-10%', left: '-5%', fontSize: '20vw', fontWeight: 700, color: '#000', opacity: 0.03, fontFamily: '"JetBrains Mono", monospace', pointerEvents: 'none' }}>SYS</div>
-        
+
         <div className="erp-card" style={{ width: '420px', padding: '48px', zIndex: 1, background: '#FFF', position: 'relative' }}>
-          <button 
+          <button
             onClick={() => setShowSettings(!showSettings)}
             style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ⚙️
           </button>
-          
+
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ 
-              width: '64px', height: '64px', 
+            <div style={{
+              width: '64px', height: '64px',
               background: 'var(--brand-primary)',
               border: '2px solid #000',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -180,20 +186,20 @@ function LoginScreen({ onLogin }) {
             <h2 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '-0.05em' }}>TenderAI</h2>
             <p className="text-secondary" style={{ fontSize: '12px', fontFamily: '"JetBrains Mono", monospace', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Authorized Access Only</p>
           </div>
-          
+
           {error && (
             <div style={{ background: '#FFEBEB', border: '2px solid var(--status-red)', padding: '12px', marginBottom: '24px', color: 'var(--status-red)', fontSize: '12px', fontWeight: 700, fontFamily: '"JetBrains Mono", monospace', textTransform: 'uppercase' }}>
               {error}
             </div>
           )}
-          
+
           {showSettings ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                 <label className="form-label">Backend API URL</label>
-                <input 
-                  type="text" 
-                  className="erp-input" 
+                <input
+                  type="text"
+                  className="erp-input"
                   value={apiUrl}
                   onChange={e => setApiUrl(e.target.value)}
                   placeholder={import.meta.env.VITE_API_URL || "http://localhost:8000"}
@@ -205,24 +211,24 @@ function LoginScreen({ onLogin }) {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                 <label className="form-label">Email Address</label>
-                <input 
-                  type="email" 
-                  className="form-input" 
+                <input
+                  type="email"
+                  className="form-input"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="USER@COMPANY.COM" 
-                  required 
+                  placeholder="USER@COMPANY.COM"
+                  required
                 />
               </div>
               <div>
                 <label className="form-label">Password</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
+                <input
+                  type="password"
+                  className="form-input"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="********" 
-                  required 
+                  placeholder="********"
+                  required
                 />
               </div>
               <button type="submit" className="btn-primary" style={{ marginTop: '16px', width: '100%', fontSize: '18px', padding: '20px' }}>
@@ -241,7 +247,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log("App useEffect mounting");
     try {
       const token = localStorage.getItem('token');
       if (token) {
@@ -252,8 +257,6 @@ function App() {
     }
     setIsLoading(false);
   }, []);
-
-  console.log("App render state:", { isLoading, isAuthenticated });
 
   if (isLoading) return null;
 

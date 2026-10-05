@@ -11,7 +11,10 @@ from sklearn.metrics import classification_report, accuracy_score
 import joblib
 
 # Import our new Prisma data prep script
-from data_prep import get_ml_dataframe
+try:
+    from ml.data_prep import get_ml_dataframe
+except ImportError:
+    from data_prep import get_ml_dataframe
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)

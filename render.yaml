@@ -10,9 +10,10 @@ services:
         fromDatabase:
           name: tenderai-db
           property: connectionString
-      # Any other secrets like JWT_SECRET can be added here
-      # - key: JWT_SECRET
-      #   generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
 
 
 

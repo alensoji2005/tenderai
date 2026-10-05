@@ -3,8 +3,10 @@ from api.main import db
 from api.auth import get_current_user
 from collections import defaultdict
 from datetime import datetime
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/dashboard")
 async def get_dashboard_stats(current_user = Depends(get_current_user)):
@@ -64,16 +66,32 @@ async def get_dashboard_stats(current_user = Depends(get_current_user)):
         category_res = await db.query_raw(category_query)
         top_categories = [{"name": row["name"], "count": row["count"]} for row in category_res]
         
+        # Average % by which the winning bid undercuts the mean bid (tenders with 2+ priced bids)
+        margin_query = """
+        SELECT AVG((1 - win / avg_bid) * 100)::float AS margin FROM (
+            SELECT
+                MIN(CASE WHEN is_winner THEN total_quoted_value END) AS win,
+                AVG(total_quoted_value) AS avg_bid
+            FROM "AwardedTenderBid"
+            WHERE total_quoted_value > 0
+            GROUP BY awarded_tender_no
+            HAVING COUNT(*) >= 2 AND MIN(CASE WHEN is_winner THEN total_quoted_value END) IS NOT NULL
+        ) x
+        """
+        margin_res = await db.query_raw(margin_query)
+        avg_win_margin = round(margin_res[0]["margin"], 1) if margin_res and margin_res[0]["margin"] is not None else 0.0
+
         return {
             "total_tenders": total_tenders,
             "total_competitors": total_competitors,
-            "avg_win_margin": 14.2, # Hardcoded placeholder
+            "avg_win_margin": avg_win_margin,
             "chart_data": chart_data,
             "top_entities": top_entities,
             "top_categories": top_categories
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("stats query failed")
+        raise HTTPException(status_code=500, detail="Failed to load statistics.")
 
 @router.get("/scraper")
 async def get_scraper_stats(current_user = Depends(get_current_user)):
@@ -87,5 +105,6 @@ async def get_scraper_stats(current_user = Depends(get_current_user)):
             "target": 30000,
             "progress_percent": round((total_scraped / 30000) * 100, 2)
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("stats query failed")
+        raise HTTPException(status_code=500, detail="Failed to load statistics.")

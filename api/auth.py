@@ -11,7 +11,9 @@ import os
 
 router = APIRouter()
 
-SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
+SECRET_KEY = os.getenv("JWT_SECRET")
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET environment variable is required (set it in .env).")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week
 

@@ -6,11 +6,11 @@ export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [entities, setEntities] = useState([]);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntity, setSelectedEntity] = useState('');
-  
+
   const navigate = useNavigate();
   const apiUrl = localStorage.getItem('api_url') || import.meta.env.VITE_API_URL || 'http://localhost:8000';
   const token = localStorage.getItem('token');
@@ -32,8 +32,8 @@ export default function CompetitorsPage() {
     queryParams.append('limit', '50');
     if (searchQuery) queryParams.append('search', searchQuery);
     if (selectedEntity) queryParams.append('entity', selectedEntity);
-    
-    fetch(`${apiUrl}/api/competitors?${queryParams.toString()}`, {
+
+    fetch(`${apiUrl}/api/competitors/?${queryParams.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => {
@@ -69,12 +69,12 @@ export default function CompetitorsPage() {
             <Users size={16} color="var(--brand-primary)" />
             Top Competitors
           </div>
-          <div className="stat-value">50+</div>
+          <div className="stat-value">{competitors.length}</div>
           <div style={{ fontSize: '12px', color: 'var(--status-green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             Tracked in live data
           </div>
         </div>
-        
+
         <div className="stat-card" style={{ gridColumn: 'span 4' }}>
           <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Target size={16} color="var(--brand-accent)" />
@@ -93,25 +93,25 @@ export default function CompetitorsPage() {
             <Building2 size={20} />
             Competitor Leaderboard
           </div>
-          
+
           {/* Filters */}
           <div style={{ display: 'flex', gap: '16px', fontWeight: 'normal', fontSize: '14px' }}>
             <div style={{ position: 'relative' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
-              <input 
-                type="text" 
-                placeholder="Search company..." 
-                className="form-input" 
+              <input
+                type="text"
+                placeholder="Search company..."
+                className="form-input"
                 style={{ paddingLeft: '36px', width: '200px' }}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
-            
+
             <div style={{ position: 'relative' }}>
               <Filter size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666' }} />
-              <select 
-                className="form-input" 
+              <select
+                className="form-input"
                 style={{ paddingLeft: '36px', width: '200px', cursor: 'pointer' }}
                 value={selectedEntity}
                 onChange={e => setSelectedEntity(e.target.value)}
@@ -124,7 +124,7 @@ export default function CompetitorsPage() {
             </div>
           </div>
         </div>
-        
+
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading data...</div>
         ) : (
@@ -143,8 +143,8 @@ export default function CompetitorsPage() {
                 {competitors.map((c, i) => {
                   const winRate = c.total_bids > 0 ? ((c.tenders_won / c.total_bids) * 100).toFixed(1) : 0;
                   return (
-                    <tr 
-                      key={i} 
+                    <tr
+                      key={i}
                       onClick={() => navigate(`/competitors/${encodeURIComponent(c.company_name)}`)}
                       style={{ cursor: 'pointer' }}
                       className="hover-row"

@@ -40,4 +40,4 @@ EXPOSE 8000
 
 # Start command
 # We use Prisma db push (or migrate deploy) and then start the Uvicorn server
-CMD prisma db push --accept-data-loss && uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD prisma db push && uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}

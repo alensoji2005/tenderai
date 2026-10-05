@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileText, AlertCircle, Eye, RefreshCw, Download, Search, Filter } from 'lucide-react';
+import { FileText, AlertCircle, Eye, RefreshCw, Download, Search } from 'lucide-react';
 
 export default function TendersPage() {
   const [tenders, setTenders] = useState([]);
@@ -25,7 +25,7 @@ export default function TendersPage() {
 
   const fetchTenders = () => {
     setLoading(true);
-    let url = `${apiUrl}/api/tenders?limit=50`;
+    let url = `${apiUrl}/api/tenders/?limit=50`;
     if (searchTerm) url += `&title_search=${encodeURIComponent(searchTerm)}`;
     if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
     if (categoryFilter) url += `&category=${encodeURIComponent(categoryFilter)}`;
@@ -44,7 +44,7 @@ export default function TendersPage() {
 
   const handleExport = () => {
     setExporting(true);
-    let url = `${apiUrl}/api/tenders?limit=0`;
+    let url = `${apiUrl}/api/tenders/?limit=0`;
     if (searchTerm) url += `&title_search=${encodeURIComponent(searchTerm)}`;
     if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
     if (categoryFilter) url += `&category=${encodeURIComponent(categoryFilter)}`;
@@ -58,26 +58,26 @@ export default function TendersPage() {
           setExporting(false);
           return;
         }
-        
+
         const headers = ["Tender ID", "Title", "Category", "Status", "Estimated Value", "Closing Date"];
         const csvContent = [
           headers.join(","),
           ...rows.map(r => [
-            `"${r.tender_id || ''}"`, 
-            `"${(r.title || '').replace(/"/g, '""')}"`, 
-            `"${r.category || ''}"`, 
-            `"${r.status || ''}"`, 
-            r.estimated_value || '', 
+            `"${r.tender_id || ''}"`,
+            `"${(r.title || '').replace(/"/g, '""')}"`,
+            `"${r.category || ''}"`,
+            `"${r.status || ''}"`,
+            r.estimated_value || '',
             `"${r.closing_date || ''}"`
           ].join(","))
-        ].join("\\n");
-        
+        ].join("\n");
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         link.download = `tenders_export_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
-        
+
         setExporting(false);
       })
       .catch(err => { console.error(err); setExporting(false); });
@@ -112,14 +112,14 @@ export default function TendersPage() {
             <FileText size={20} />
             Tender Explorer
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {syncStatus.last_sync && (
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                 Last sync: {new Date(syncStatus.last_sync).toLocaleString()}
               </span>
             )}
-            <button 
+            <button
               onClick={triggerSync}
               disabled={syncStatus.status === 'running'}
               className="btn-secondary"
@@ -130,14 +130,14 @@ export default function TendersPage() {
             </button>
           </div>
         </div>
-        
+
         <div style={{ padding: '16px 32px', display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ flex: 1, position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-secondary)' }} />
-            <input 
-              type="text" 
-              placeholder="Search by Title..." 
-              className="form-input" 
+            <input
+              type="text"
+              placeholder="Search by Title..."
+              className="form-input"
               style={{ paddingLeft: '36px', height: '36px', margin: 0 }}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
@@ -148,19 +148,20 @@ export default function TendersPage() {
             <option value="active">Active</option>
             <option value="awarded">Awarded</option>
           </select>
-          <select className="form-input" style={{ width: '160px', height: '36px', margin: 0 }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-            <option value="">All Categories</option>
-            <option value="Construction">Construction</option>
-            <option value="IT">IT</option>
-            <option value="Consultancy">Consultancy</option>
-            <option value="Supply">Supply</option>
-          </select>
+          <input
+            type="text"
+            placeholder="Category contains..."
+            className="form-input"
+            style={{ width: '200px', height: '36px', margin: 0 }}
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          />
           <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '36px' }} onClick={handleExport} disabled={exporting}>
             <Download size={16} />
             {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
         </div>
-        
+
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading data...</div>
         ) : tenders.length === 0 ? (
@@ -174,8 +175,8 @@ export default function TendersPage() {
                 <tr>
                   <th style={{ paddingLeft: '32px' }}>Tender ID</th>
                   <th>Title</th>
-                  <th>Type</th>
-                  <th>Est. Value</th>
+                  <th>Entity</th>
+                  <th>Value (Est. / Award)</th>
                   <th>Status</th>
                   <th style={{ paddingRight: '32px' }}>Actions</th>
                 </tr>
@@ -184,16 +185,16 @@ export default function TendersPage() {
                 {tenders.map(t => (
                   <tr key={t.tender_id} style={{ cursor: 'pointer' }} onClick={() => setSelectedTender(t)}>
                     <td style={{ paddingLeft: '32px', fontWeight: 500, color: 'var(--brand-primary)' }}>
-                      {t.reference_number || t.tender_id.substring(0, 8)}
+                      {t.tender_id}
                     </td>
                     <td style={{ maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {t.title}
                     </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{t.contract_type || 'General'}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{t.entity || t.tender_type || '-'}</td>
                     <td>{t.estimated_value ? `OMR ${t.estimated_value.toLocaleString()}` : '-'}</td>
                     <td>
-                      <span className={`status-badge ${t.status === 'active' ? 'status-active' : 'status-awarded'}`}>
-                        {t.status.charAt(0).toUpperCase() + t.status.slice(1)}
+                      <span className={`status-badge ${t.status === 'active' ? 'status-active' : t.status === 'awarded' ? 'status-awarded' : 'status-closed'}`}>
+                        {(t.status || '-').charAt(0).toUpperCase() + (t.status || '-').slice(1)}
                       </span>
                     </td>
                     <td style={{ paddingRight: '32px' }}>
@@ -212,21 +213,21 @@ export default function TendersPage() {
       {/* Side Drawer for Tender Details */}
       {selectedTender && (
         <>
-          <div 
+          <div
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100 }}
             onClick={() => setSelectedTender(null)}
           />
-          <div style={{ 
-            position: 'fixed', top: 0, right: 0, bottom: 0, width: '500px', 
-            background: 'var(--bg-surface-solid)', zIndex: 101,
-            borderLeft: '1px solid var(--border-light)', boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: '500px',
+            background: 'var(--bg-surface)', zIndex: 101,
+            borderLeft: '2px solid #000', boxShadow: '-8px 0 0 rgba(0,0,0,0.25)',
             padding: '32px', overflowY: 'auto'
           }}>
             <h2 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)' }}>Tender Intelligence</h2>
-            <div style={{ color: 'var(--brand-primary)', fontFamily: 'Outfit', fontWeight: 500, marginBottom: '24px' }}>
-              {selectedTender.reference_number || selectedTender.tender_id}
+            <div style={{ color: 'var(--brand-primary)', fontFamily: '"JetBrains Mono", monospace', fontWeight: 700, marginBottom: '24px' }}>
+              {selectedTender.tender_id}
             </div>
-            
+
             <div style={{ marginBottom: '32px' }}>
               <div className="form-label">Title / Scope</div>
               <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6 }}>{selectedTender.title}</p>
@@ -234,26 +235,28 @@ export default function TendersPage() {
 
             <div className="erp-card" style={{ padding: '20px', marginBottom: '24px' }}>
                <h3 style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bidding Competitors</h3>
-               
+
                {!selectedTender.bids || selectedTender.bids.length === 0 ? (
                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
                    <AlertCircle size={14} />
-                   No competitor bids recorded for this tender.
+                   {selectedTender.status === 'awarded'
+                     ? 'No competitor bids recorded for this tender.'
+                     : 'Bids are only published once a tender is awarded.'}
                  </div>
                ) : (
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                    {selectedTender.bids.map((bid, i) => (
-                     <div key={i} style={{ 
-                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                       padding: '12px 16px', background: bid.is_winner ? 'rgba(46, 160, 67, 0.1)' : 'rgba(255,255,255,0.03)', 
-                       borderRadius: '8px', border: bid.is_winner ? '1px solid rgba(46, 160, 67, 0.3)' : '1px solid rgba(255,255,255,0.05)'
+                     <div key={i} style={{
+                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                       padding: '12px 16px', background: bid.is_winner ? 'rgba(0, 166, 81, 0.12)' : '#FFF',
+                       border: bid.is_winner ? '2px solid var(--status-green)' : '2px solid #000'
                      }}>
                        <div style={{ fontWeight: 500, color: bid.is_winner ? 'var(--status-green)' : 'var(--text-primary)' }}>
                          {bid.company_name}
-                         {bid.is_winner && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 6px', background: 'var(--status-green)', color: 'white', borderRadius: '4px' }}>WINNER</span>}
+                         {bid.is_winner && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 6px', background: 'var(--status-green)', color: 'white' }}>WINNER</span>}
                        </div>
-                       <div style={{ fontFamily: 'Outfit', fontWeight: 600 }}>
-                         OMR {bid.amount.toLocaleString()}
+                       <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 600 }}>
+                         OMR {(bid.total_quoted_value ?? 0).toLocaleString()}
                        </div>
                      </div>
                    ))}

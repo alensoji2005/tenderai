@@ -21,7 +21,7 @@ export default function DashboardPage() {
     const token = localStorage.getItem('token');
     
     // Fetch Recent Tenders
-    fetch(`${apiUrl}/api/tenders?limit=5`, {
+    fetch(`${apiUrl}/api/tenders/?limit=5`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => {
