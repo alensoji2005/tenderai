@@ -49,21 +49,20 @@ def get_model_mae():
     except Exception:
         return None
 
-def win_ratios_for(bidders=None):
-    """Sorted winner/median-bid ratios, narrowed to the bidder-count bucket when one applies; None if untrained."""
-    model = _load('win_ratios.pkl')
-    if model is None:
-        return None
-    if bidders:
-        for lo, hi, arr in model['buckets']:
-            if lo <= bidders <= hi:
-                return arr
-    return model['all']
+def win_curve():
+    """The trained P(win) model, or None if it has not been trained yet."""
+    return _load('win_curve.pkl')
 
-def win_probability(ratios, r):
-    """Share of past winners that priced at or above ratio r (bid / typical bid), clamped to 1-99%."""
-    prob = 1.0 - float(np.searchsorted(ratios, r, side='left')) / len(ratios)
-    return max(0.01, min(0.99, prob))
+def win_probabilities(curve, ratios, bidders=None):
+    """
+    Chance (0.01-0.99) that each price wins, where a price is given as bid / typical (median) bid.
+    With no bidder count, averages over the bidder counts seen in past tenders.
+    """
+    ratios = np.asarray(ratios, dtype=float)
+    counts = [bidders] if bidders else list(curve['n_sample'])
+    X = np.array([[np.log(r), n] for n in counts for r in ratios])
+    probs = curve['model'].predict_proba(X)[:, 1].reshape(len(counts), len(ratios)).mean(axis=0)
+    return np.clip(probs, 0.01, 0.99)
 
 def _bad_request(e):
     if isinstance(e, ValueError):
@@ -92,7 +91,7 @@ class OptimalBidRequest(BaseModel):
 class P2WRequest(BaseModel):
     base_cost: float
     estimated_value: float
-    target_probability: float = 85.0
+    target_probability: float = 35.0
     title: str
     entity: str = "Ministry of Health"
     category: str = "Construction"
@@ -205,41 +204,34 @@ async def predict_price_to_win(request: P2WRequest):
     try:
         if request.base_cost <= 0:
             raise ValueError("Base cost must be greater than 0.")
-            
-        target_prob = request.target_probability / 100.0
-        
-        simulations = []
-        
-        # Simulate margins from 0.80 (20% loss) to 2.00 (100% profit) in 1% increments
-        margins = [(80 + i) / 100.0 for i in range(121)]
-        
-        # Empirical winner/median-bid ratios from past awards. estimated_value is the expected
-        # typical (median) bid; we win if we price below what the winner historically did.
-        ratios = win_ratios_for(request.bidders)
-        if ratios is None:
-            raise ValueError("Win-ratio model not trained yet. Run a sync or ml/train_model.py.")
         if request.estimated_value <= 0:
             raise ValueError("Estimated value must be greater than 0.")
+        if request.bidders is not None and request.bidders < 2:
+            raise ValueError("Bidders must be at least 2.")
 
-        for margin in margins:
-            bid_price = request.base_cost * margin
-            profit = bid_price - request.base_cost
-            prob = win_probability(ratios, bid_price / request.estimated_value)
+        # estimated_value is the expected typical (median) bid. The win curve, learned from real past
+        # bids, gives the chance that a price relative to that typical bid wins.
+        curve = win_curve()
+        if curve is None:
+            raise ValueError("Win-probability model not trained yet. Run a sync or ml/train_model.py.")
 
-            simulations.append({
-                "margin": round(margin * 100 - 100, 1),
-                "bid_price": round(bid_price, 2),
-                "profit": round(profit, 2),
-                "win_probability": round(prob * 100, 1)
-            })
+        # Simulate margins from 0.80 (20% loss) to 2.00 (100% profit) in 1% increments
+        margins = [(80 + i) / 100.0 for i in range(121)]
+        bid_prices = [request.base_cost * m for m in margins]
+        probs = win_probabilities(curve, [p / request.estimated_value for p in bid_prices], request.bidders)
 
-        # Sort simulations by probability descending
-        sims_sorted_by_prob = sorted(simulations, key=lambda x: x["win_probability"], reverse=True)
-        
-        # Best Match: highest profit among those with prob >= target_probability
+        simulations = [{
+            "margin": round(margin * 100 - 100, 1),
+            "bid_price": round(price, 2),
+            "profit": round(price - request.base_cost, 2),
+            "win_probability": round(float(prob) * 100, 1),
+        } for margin, price, prob in zip(margins, bid_prices, probs)]
+
         # Never recommend a loss-making bid when a profitable one exists
         profitable = [s for s in simulations if s["profit"] >= 0] or simulations
         profitable_by_prob = sorted(profitable, key=lambda x: x["win_probability"], reverse=True)
+
+        # Recommended: highest profit among bids that reach the target win probability
         valid_options = [s for s in profitable if s["win_probability"] >= request.target_probability]
         target_reached = bool(valid_options)
         if target_reached:
@@ -248,22 +240,29 @@ async def predict_price_to_win(request: P2WRequest):
             # Nothing hits the target at a profit: pick the best expected profit (win chance x profit),
             # which beats the break-even bid (zero profit even when it wins)
             best_match = max(profitable, key=lambda x: x["win_probability"] * x["profit"])
-            
-        # Aggressive: high risk (e.g., lower prob, but much higher profit)
-        agg_options = [s for s in profitable if s["win_probability"] >= 30.0]
+
+        # Aggressive: riskier, accepts half the target win chance for more profit
+        agg_options = [s for s in profitable if s["win_probability"] >= request.target_probability / 2]
         if agg_options:
             aggressive = max(agg_options, key=lambda x: x["profit"])
         else:
             aggressive = profitable_by_prob[0]
-            
+
         # Conservative: lowest risk (highest win probability)
         conservative = profitable_by_prob[0]
-        
+
+        # How much the recommended win chance moves if the typical-bid estimate is 10% off
+        sensitivity = {}
+        for label, factor in (("typical_bid_10pct_lower", 0.9), ("typical_bid_10pct_higher", 1.1)):
+            p = win_probabilities(curve, [best_match["bid_price"] / (request.estimated_value * factor)], request.bidders)[0]
+            sensitivity[label] = round(float(p) * 100, 1)
+
         return {
             "recommended": best_match,
-            "target_reached": target_reached,
             "aggressive": aggressive,
             "conservative": conservative,
+            "target_reached": target_reached,
+            "recommended_sensitivity": sensitivity,
             "simulations": simulations
         }
     except Exception as e:

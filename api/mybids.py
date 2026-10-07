@@ -7,7 +7,7 @@ import logging
 
 from api.main import db
 from api.auth import get_current_user
-from api.ml import win_ratios_for, win_probability
+from api.ml import win_curve, win_probabilities
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 logger = logging.getLogger(__name__)
@@ -40,10 +40,10 @@ def _to_dict(row):
 
 def predict_percent(our_price, typical_bid, bidders):
     """P2W win chance (percent) for this price, or None when it can't be computed."""
-    ratios = win_ratios_for(bidders)
-    if ratios is None or not typical_bid:
+    curve = win_curve()
+    if curve is None or not typical_bid:
         return None
-    return round(win_probability(ratios, our_price / typical_bid) * 100, 1)
+    return round(float(win_probabilities(curve, [our_price / typical_bid], bidders)[0]) * 100, 1)
 
 
 def calibration(rows):

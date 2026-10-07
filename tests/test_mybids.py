@@ -11,7 +11,16 @@ from api import mybids
 from api.auth import get_current_user
 from api.main import app
 
-MODEL = {"all": np.linspace(0.5, 1.5, 1001), "buckets": []}
+
+
+class HalfModel:
+    """Stand-in win curve: every price wins 50%."""
+
+    def predict_proba(self, X):
+        return np.full((len(X), 2), 0.5)
+
+
+CURVE = {"model": HalfModel(), "n_sample": np.array([3])}
 BID = {"tender_no": "T1", "title": "Poles", "our_price": 100000, "base_cost": 80000}
 
 
@@ -45,7 +54,7 @@ class FakeMyBid:
 @pytest.fixture
 def client(monkeypatch):
     app.dependency_overrides[get_current_user] = lambda: object()
-    monkeypatch.setattr(ml_module, "_load", lambda name: MODEL if name == "win_ratios.pkl" else None)
+    monkeypatch.setattr(ml_module, "_load", lambda name: CURVE if name == "win_curve.pkl" else None)
     monkeypatch.setattr(mybids, "db", SimpleNamespace(mybid=FakeMyBid()))
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -61,9 +70,20 @@ def test_requires_auth():
 
 
 def test_predicted_probability_computed_from_model(client):
-    # price/typical = 1.0 is the median of OVERALL ratios, so the win chance is ~50%
     d = client.post("/api/my-bids/", json={**BID, "typical_bid": 100000}).json()
-    assert d["predicted_probability"] == pytest.approx(50.0, abs=0.2)
+    assert d["predicted_probability"] == 50.0
+
+
+def test_prediction_uses_price_relative_to_typical_bid(client, monkeypatch):
+    class Cliff:
+        def predict_proba(self, X):
+            p = np.where(np.exp(X[:, 0]) < 1.0, 0.8, 0.1)
+            return np.c_[1 - p, p]
+
+    monkeypatch.setattr(ml_module, "_load", lambda name: {"model": Cliff(), "n_sample": np.array([3])})
+    under = client.post("/api/my-bids/", json={**BID, "our_price": 90000, "typical_bid": 100000}).json()
+    over = client.post("/api/my-bids/", json={**BID, "our_price": 110000, "typical_bid": 100000}).json()
+    assert (under["predicted_probability"], over["predicted_probability"]) == (80.0, 10.0)
 
 
 def test_given_prediction_is_kept_and_missing_typical_bid_gives_none(client):

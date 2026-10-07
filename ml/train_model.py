@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
 import logging
@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 ML_DIR = os.path.dirname(os.path.abspath(__file__))
 
 try:
-    from ml.data_prep import clean_tenders
+    from ml.data_prep import clean_tenders, clean_bids
 except ImportError:  # run as a script from inside ml/
-    from data_prep import clean_tenders
+    from data_prep import clean_tenders, clean_bids
 
 async def fetch_data():
     db = Prisma()
@@ -133,38 +133,49 @@ async def train_competitor_model_async():
 def train_competitor_model():
     asyncio.run(train_competitor_model_async())
 
-WIN_RATIO_BUCKETS = [(2, 2), (3, 4), (5, 7), (8, 11), (12, 10**6)]
+WIN_CURVE_RATIO_RANGE = (0.05, 5)  # bid / median bid outside this is bad data
+WIN_CURVE_MIN_BIDS = 1000
 
-async def train_win_ratio_model_async():
-    """Empirical distribution of (winning bid / median bid) per tender: the basis of P2W win probabilities."""
+
+def fit_win_curve(bids):
+    """
+    Learn P(a bid wins | its price relative to the tender's median bid, number of bidders).
+
+    Trained on every real bid, so it captures how awards really work: price matters, but
+    undercutting the winner does not guarantee a win and the very lowest prices do not win
+    more often. Returns {'model': classifier on [log ratio, bidders], 'n_sample': typical
+    bidder counts, used to average over the unknown when the user gives no bidder count}.
+    """
+    lo, hi = WIN_CURVE_RATIO_RANGE
+    bids = [b for b in bids if lo < b['ratio'] < hi]
+    X = np.array([[np.log(b['ratio']), b['n_bidders']] for b in bids])
+    y = np.array([b['is_winner'] for b in bids], dtype=int)
+    model = HistGradientBoostingClassifier(max_depth=3, learning_rate=0.05, max_iter=200, random_state=0)
+    model.fit(X, y)
+    per_tender = {b['tender_no']: b['n_bidders'] for b in bids}  # one count per tender
+    n_sample = np.quantile(list(per_tender.values()), np.linspace(0.025, 0.975, 20)).round().astype(int)
+    return {'model': model, 'n_sample': n_sample}
+
+
+async def train_win_curve_model_async():
+    """P(win) curve: the basis of P2W win probabilities and My Bids calibration."""
     db = Prisma()
     await db.connect()
     tenders = await db.awardedtender.find_many(include={'bids': True})
     await db.disconnect()
 
-    ratios = []  # (bidder count, ratio)
-    for r in clean_tenders(tenders):
-        ratio = r['winning_bid'] / r['median_bid']
-        if 0.2 < ratio < 3:  # drop bad-data outliers
-            ratios.append((r['n_bidders'], ratio))
-
-    if len(ratios) < 100:
-        logger.error(f"Not enough tenders for the win-ratio model ({len(ratios)}).")
+    bids = clean_bids(tenders)
+    if len(bids) < WIN_CURVE_MIN_BIDS:
+        logger.error(f"Not enough bids for the win-curve model ({len(bids)}).")
         return
-    path = os.path.join(ML_DIR, 'win_ratios.pkl')
-    all_r = np.array([r for _, r in ratios])
-    buckets = []
-    for lo, hi in WIN_RATIO_BUCKETS:
-        sel = np.sort(np.array([r for n, r in ratios if lo <= n <= hi]))
-        if len(sel) >= 100:
-            buckets.append((lo, hi, sel))
-    joblib.dump({'all': np.sort(all_r), 'buckets': buckets}, path)
-    logger.info(f"Win-ratio model saved to {path} ({len(ratios)} tenders)")
+    path = os.path.join(ML_DIR, 'win_curve.pkl')
+    joblib.dump(fit_win_curve(bids), path)
+    logger.info(f"Win-curve model saved to {path} ({len(bids)} bids)")
 
-def train_win_ratio_model():
-    asyncio.run(train_win_ratio_model_async())
+def train_win_curve_model():
+    asyncio.run(train_win_curve_model_async())
 
 if __name__ == '__main__':
     train_model()
     train_competitor_model()
-    train_win_ratio_model()
+    train_win_curve_model()

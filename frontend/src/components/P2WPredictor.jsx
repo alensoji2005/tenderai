@@ -7,7 +7,7 @@ export default function P2WPredictor() {
     base_cost: '',
     estimated_value: '',
     bidders: '',
-    target_probability: 95,
+    target_probability: 35,
     entity: 'Ministry of Health',
     category: 'Construction',
     company_name: 'Oman Poles LLC'
@@ -98,7 +98,7 @@ export default function P2WPredictor() {
       </div>
 
       <p style={{ color: '#475569', fontSize: '13px', marginBottom: '24px' }}>
-        Input your base cost to simulate thousands of scenarios and find the exact bid price that maximizes profit at your target win probability.
+        Enter your base cost and the typical bid you expect. P2W uses how real past bids fared to find the price with the best profit at your target win chance. Winning is hard even when you price well, so realistic targets are 20 to 50%.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -161,16 +161,16 @@ export default function P2WPredictor() {
           </label>
           <input
             type="range"
-            min="50"
-            max="99"
+            min="10"
+            max="70"
             step="1"
             style={{ width: '100%', marginTop: '8px' }}
             value={formData.target_probability}
             onChange={e => setFormData({...formData, target_probability: e.target.value})}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-            <span>50% (High Profit)</span>
-            <span>99% (Low Profit)</span>
+            <span>10% (High Profit)</span>
+            <span>70% (Low Profit)</span>
           </div>
         </div>
 
@@ -254,6 +254,14 @@ export default function P2WPredictor() {
           {prediction.target_reached === false && (
             <div style={{ fontSize: '13px', color: '#9a3412', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '10px 12px' }}>
               The target win probability is not reachable at a profit for these inputs. The recommended bid is the one with the best expected profit (win chance x profit).
+            </div>
+          )}
+
+          {prediction.recommended_sensitivity && (
+            <div style={{ fontSize: '13px', color: '#475569' }}>
+              If the typical bid is really 10% lower than you entered, the recommended win chance drops to{' '}
+              <strong>{prediction.recommended_sensitivity.typical_bid_10pct_lower}%</strong>; if 10% higher, it rises to{' '}
+              <strong>{prediction.recommended_sensitivity.typical_bid_10pct_higher}%</strong>. Pricing above the typical bid rarely wins.
             </div>
           )}
 

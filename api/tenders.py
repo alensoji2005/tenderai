@@ -5,6 +5,7 @@ from api.auth import get_current_user
 from typing import Optional, List
 from datetime import datetime
 import logging
+from ml.data_prep import is_sane_amount
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ async def get_tenders(
                 "category": r.category_grade,
                 "entity": r.entity_name,
                 "status": "awarded",
-                "estimated_value": r.winning_amount,
+                "estimated_value": r.winning_amount if is_sane_amount(r.winning_amount) else None,
                 "closing_date": r.awarded_date,
                 "bids": r.bids,
             } for r in rows]

@@ -2,7 +2,7 @@ import pytest
 
 from types import SimpleNamespace as NS
 
-from ml.data_prep import clean_tenders
+from ml.data_prep import clean_tenders, is_sane_amount
 
 
 def bid(company, value, winner=False, offer="Main"):
@@ -63,3 +63,8 @@ def test_median_differs_from_mean_on_skewed_bids():
     r = one([bid("A", 80, True), bid("B", 100), bid("C", 300)])
     assert r["median_bid"] == 100
     assert r["mean_bid"] == pytest.approx(160)
+
+
+@pytest.mark.parametrize("value,ok", [(1, True), (1e8, True), (0, False), (-5, False), (1e8 + 1, False), (None, False)])
+def test_is_sane_amount(value, ok):
+    assert is_sane_amount(value) is ok

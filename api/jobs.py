@@ -198,10 +198,10 @@ def run_scraper_job():
 
         try:
             logger.info("Retraining ML Models with newly scraped data...")
-            from ml.train_model import train_model, train_competitor_model, train_win_ratio_model
+            from ml.train_model import train_model, train_competitor_model, train_win_curve_model
             train_model()
             train_competitor_model()
-            train_win_ratio_model()
+            train_win_curve_model()
             logger.info("ML Models retrained successfully.")
         except Exception as e:
             logger.error(f"Failed to retrain ML models: {e}")
