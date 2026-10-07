@@ -251,8 +251,14 @@ export default function P2WPredictor() {
             Simulation Results
           </div>
 
+          {prediction.target_reached === false && (
+            <div style={{ fontSize: '13px', color: '#9a3412', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px', padding: '10px 12px' }}>
+              The target win probability is not reachable at a profit for these inputs. The recommended bid is the one with the best expected profit (win chance x profit).
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-            {renderCard("Target Match (Recommended)", prediction.recommended, <DollarSign size={18} />, "#2563eb")}
+            {renderCard(prediction.target_reached === false ? "Best Expected Profit (Recommended)" : "Target Match (Recommended)", prediction.recommended, <DollarSign size={18} />, "#2563eb")}
             {renderCard("Aggressive Strategy", prediction.aggressive, <Flame size={18} />, "#ea580c")}
             {renderCard("Conservative Strategy", prediction.conservative, <ShieldCheck size={18} />, "#059669")}
           </div>

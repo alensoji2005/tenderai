@@ -1,9 +1,10 @@
 import { HashRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, Settings, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, Settings, Database, ClipboardList } from 'lucide-react';
 import DashboardPage from './pages/DashboardPage';
 import CompetitorsPage from './pages/CompetitorsPage';
 import CompetitorProfilePage from './pages/CompetitorProfilePage';
 import TendersPage from './pages/TendersPage';
+import MyBidsPage from './pages/MyBidsPage';
 import SettingsPage from './pages/SettingsPage';
 import { useEffect, useState } from 'react';
 
@@ -63,6 +64,10 @@ function Sidebar() {
         <BarChart3 size={18} />
         Competitors
       </NavLink>
+      <NavLink to="/my-bids" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+        <ClipboardList size={18} />
+        My Bids
+      </NavLink>
 
       <div style={{ marginTop: 'auto' }}>
         <div style={{ padding: '16px', background: '#FFF', border: '2px solid #000', marginBottom: '16px', boxShadow: '4px 4px 0px #000' }}>
@@ -86,6 +91,7 @@ function TopHeader() {
       case '/': return 'Overview';
       case '/tenders': return 'Tender Explorer';
       case '/competitors': return 'Competitor Intelligence';
+      case '/my-bids': return 'My Bids';
       case '/settings': return 'System Settings';
       default: return 'Dashboard';
     }
@@ -275,6 +281,7 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/tenders" element={<TendersPage />} />
               <Route path="/competitors" element={<CompetitorsPage />} />
+              <Route path="/my-bids" element={<MyBidsPage />} />
               <Route path="/competitors/:companyName" element={<CompetitorProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>

@@ -128,3 +128,22 @@ model User {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 }
+
+// Bids Oman Poles itself placed, logged by staff to track real win rate and calibrate P2W
+model MyBid {
+  id                    Int      @id @default(autoincrement())
+  tender_no             String
+  title                 String
+  entity                String?
+  our_price             Float
+  base_cost             Float
+  typical_bid           Float? // our estimate of the median bid when we priced it
+  bidders               Int?
+  predicted_probability Float? // P2W win chance (percent) at the time of bidding
+  result                String   @default("pending") // pending, won, lost
+  winning_price         Float?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  @@index([result])
+}

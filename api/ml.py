@@ -49,6 +49,22 @@ def get_model_mae():
     except Exception:
         return None
 
+def win_ratios_for(bidders=None):
+    """Sorted winner/median-bid ratios, narrowed to the bidder-count bucket when one applies; None if untrained."""
+    model = _load('win_ratios.pkl')
+    if model is None:
+        return None
+    if bidders:
+        for lo, hi, arr in model['buckets']:
+            if lo <= bidders <= hi:
+                return arr
+    return model['all']
+
+def win_probability(ratios, r):
+    """Share of past winners that priced at or above ratio r (bid / typical bid), clamped to 1-99%."""
+    prob = 1.0 - float(np.searchsorted(ratios, r, side='left')) / len(ratios)
+    return max(0.01, min(0.99, prob))
+
 def _bad_request(e):
     if isinstance(e, ValueError):
         return HTTPException(status_code=400, detail=str(e))
@@ -199,15 +215,7 @@ async def predict_price_to_win(request: P2WRequest):
         
         # Empirical winner/median-bid ratios from past awards. estimated_value is the expected
         # typical (median) bid; we win if we price below what the winner historically did.
-        model = _load('win_ratios.pkl')
-        ratios = None
-        if model is not None:
-            ratios = model['all']
-            if request.bidders:
-                for lo, hi, arr in model['buckets']:
-                    if lo <= request.bidders <= hi:
-                        ratios = arr
-                        break
+        ratios = win_ratios_for(request.bidders)
         if ratios is None:
             raise ValueError("Win-ratio model not trained yet. Run a sync or ml/train_model.py.")
         if request.estimated_value <= 0:
@@ -216,9 +224,7 @@ async def predict_price_to_win(request: P2WRequest):
         for margin in margins:
             bid_price = request.base_cost * margin
             profit = bid_price - request.base_cost
-            r = bid_price / request.estimated_value
-            prob = 1.0 - float(np.searchsorted(ratios, r, side='left')) / len(ratios)
-            prob = max(0.01, min(0.99, prob))
+            prob = win_probability(ratios, bid_price / request.estimated_value)
 
             simulations.append({
                 "margin": round(margin * 100 - 100, 1),
@@ -235,11 +241,13 @@ async def predict_price_to_win(request: P2WRequest):
         profitable = [s for s in simulations if s["profit"] >= 0] or simulations
         profitable_by_prob = sorted(profitable, key=lambda x: x["win_probability"], reverse=True)
         valid_options = [s for s in profitable if s["win_probability"] >= request.target_probability]
-        if valid_options:
+        target_reached = bool(valid_options)
+        if target_reached:
             best_match = max(valid_options, key=lambda x: x["profit"])
         else:
-            # If nothing hits the target, give the most likely profitable bid
-            best_match = profitable_by_prob[0]
+            # Nothing hits the target at a profit: pick the best expected profit (win chance x profit),
+            # which beats the break-even bid (zero profit even when it wins)
+            best_match = max(profitable, key=lambda x: x["win_probability"] * x["profit"])
             
         # Aggressive: high risk (e.g., lower prob, but much higher profit)
         agg_options = [s for s in profitable if s["win_probability"] >= 30.0]
@@ -253,6 +261,7 @@ async def predict_price_to_win(request: P2WRequest):
         
         return {
             "recommended": best_match,
+            "target_reached": target_reached,
             "aggressive": aggressive,
             "conservative": conservative,
             "simulations": simulations

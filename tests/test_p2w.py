@@ -59,11 +59,20 @@ def test_recommended_is_profitable_and_meets_target(client):
     assert rec["profit"] == max(s["profit"] for s in meets)
 
 
-def test_unreachable_target_falls_back_to_most_likely_profitable(client):
+def test_unreachable_target_recommends_best_expected_profit(client):
     d = post(client, target_probability=99).json()
-    best = max(s["win_probability"] for s in d["simulations"] if s["profit"] >= 0)
-    assert d["recommended"]["win_probability"] == best
-    assert d["conservative"]["win_probability"] == best
+    assert d["target_reached"] is False
+    profitable = [s for s in d["simulations"] if s["profit"] >= 0]
+    best_ev = max(s["win_probability"] * s["profit"] for s in profitable)
+    rec = d["recommended"]
+    assert rec["win_probability"] * rec["profit"] == best_ev
+    assert rec["profit"] > 0  # not the zero-profit break-even bid
+    best_prob = max(s["win_probability"] for s in profitable)
+    assert d["conservative"]["win_probability"] == best_prob
+
+
+def test_target_reached_flag_true_when_target_met(client):
+    assert post(client).json()["target_reached"] is True
 
 
 def test_never_recommends_loss_when_profit_possible(client):
